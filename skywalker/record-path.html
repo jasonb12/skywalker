@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Skywalker - Path Recording</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0d59f2",
+                        "background-light": "#f5f6f8",
+                        "background-dark": "#101622",
+                        "surface-dark": "#1e293b",
+                        "surface-darker": "#172033",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white h-screen flex justify-center overflow-hidden w-full">
+<div class="relative flex h-full w-full max-w-md flex-col bg-background-light dark:bg-background-dark overflow-hidden shadow-2xl">
+<!-- TopAppBar -->
+<div class="flex flex-col gap-2 p-4 pb-2 shrink-0 z-10">
+<div class="flex items-center h-12 justify-between">
+<button id="nav-dashboard" class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[24px]">arrow_back_ios_new</span>
+</button>
+<div class="flex items-center gap-2 bg-surface-darker/50 px-3 py-1 rounded-full border border-white/5">
+<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<p class="text-[#90a4cb] text-xs font-bold uppercase tracking-wider shrink-0">Ready</p>
+</div>
+</div>
+<div class="flex items-baseline justify-between px-1">
+<h1 class="text-slate-900 dark:text-white tracking-tight text-[28px] font-bold leading-tight">New Path</h1>
+<span class="text-xs text-[#90a4cb] font-mono">ID: #8X29A</span>
+</div>
+</div>
+<!-- Scrollable Content Area -->
+<div class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden pb-4">
+<!-- Stats Grid -->
+<div class="grid grid-cols-3 gap-3 px-4 py-2 shrink-0">
+<div class="flex flex-col justify-between gap-1 rounded-xl p-3 bg-white dark:bg-[#222f49] shadow-sm border border-slate-200 dark:border-white/5">
+<div class="flex items-center gap-1.5 text-[#90a4cb]">
+<span class="material-symbols-outlined text-[16px]">footprint</span>
+<p class="text-xs font-semibold uppercase tracking-wide">Steps</p>
+</div>
+<p class="text-slate-900 dark:text-white text-xl font-bold leading-tight mt-1">0</p>
+</div>
+<div class="flex flex-col justify-between gap-1 rounded-xl p-3 bg-white dark:bg-[#222f49] shadow-sm border border-slate-200 dark:border-white/5">
+<div class="flex items-center gap-1.5 text-[#90a4cb]">
+<span class="material-symbols-outlined text-[16px]">explore</span>
+<p class="text-xs font-semibold uppercase tracking-wide">Heading</p>
+</div>
+<p class="text-slate-900 dark:text-white text-xl font-bold leading-tight mt-1">0° N</p>
+</div>
+<div class="flex flex-col justify-between gap-1 rounded-xl p-3 bg-white dark:bg-[#222f49] shadow-sm border border-slate-200 dark:border-white/5">
+<div class="flex items-center gap-1.5 text-[#90a4cb]">
+<span class="material-symbols-outlined text-[16px]">my_location</span>
+<p class="text-xs font-semibold uppercase tracking-wide">Offset</p>
+</div>
+<p class="text-slate-900 dark:text-white text-lg font-bold leading-tight mt-1 truncate">0m, 0m</p>
+</div>
+</div>
+<!-- Map Area -->
+<div class="flex-1 px-4 py-3 min-h-[240px] flex flex-col">
+<div class="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-[#111] shadow-inner group">
+<!-- Map Image -->
+<div class="absolute inset-0 bg-cover bg-center opacity-80" data-alt="Dark mode map of city streets with a blue path line drawn" data-location="New York City" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCnJ3Fva4hsuO28kPAhf1934aLzZY8g1lQOLLb21Yqr6E83E2jLflV4jtvy8iaHtElSppQFoTACgTEX0AAieFo8Zyd7g2jnOife7bgHUgZKX65EaAH62kCPR27ExJywAX4H2-kiquvLJdxKoxPwKi_lnRzN50btAeVaWR1EXxXGO6j38epfIz8r-xLCGHO32EOo-UIxcrrlXnmfIdJp6c2VXIJsk7yf5mp-4TWs5_JV10ACN1dOWY7bH5RRGUNV9ZLT3DeFjbnLLlw"); filter: grayscale(100%) invert(85%) contrast(120%);'>
+</div>
+<!-- Dark mode overlay for better contrast -->
+<div class="absolute inset-0 bg-[#101623]/60 mix-blend-multiply pointer-events-none"></div>
+<!-- Location Cursor -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+<div class="w-4 h-4 bg-primary rounded-full border-2 border-white shadow-[0_0_15px_rgba(13,89,242,0.6)]"></div>
+<div class="absolute inset-0 bg-primary rounded-full animate-ping opacity-75"></div>
+</div>
+<!-- Zoom Controls Mockup -->
+<div class="absolute right-3 bottom-3 flex flex-col gap-2">
+<div class="w-8 h-8 rounded-lg bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/10"><span class="material-symbols-outlined text-sm">add</span></div>
+<div class="w-8 h-8 rounded-lg bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/10"><span class="material-symbols-outlined text-sm">remove</span></div>
+</div>
+</div>
+</div>
+<!-- BLE Panel -->
+<div class="px-4 pb-2 @container">
+<div class="flex flex-1 items-center justify-between gap-4 rounded-xl border border-slate-200 dark:border-[#314368] bg-white dark:bg-[#151c2b] p-4 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary shrink-0">
+<span class="material-symbols-outlined">bluetooth</span>
+</div>
+<div class="flex flex-col">
+<p class="text-slate-900 dark:text-white text-sm font-bold leading-tight">BLE Fingerprinting</p>
+<p class="text-[#90a4cb] text-xs font-normal leading-normal">12 devices visible</p>
+</div>
+</div>
+<label class="relative flex h-[28px] w-[46px] cursor-pointer items-center rounded-full border-none bg-slate-200 dark:bg-[#222f49] p-0.5 has-[:checked]:justify-end has-[:checked]:bg-primary transition-colors">
+<div class="h-full aspect-square rounded-full bg-white shadow-sm"></div>
+<input checked="" class="invisible absolute" type="checkbox"/>
+</label>
+</div>
+</div>
+</div>
+<!-- Bottom Actions (Fixed) -->
+<div class="shrink-0 bg-white dark:bg-[#101623] border-t border-slate-200 dark:border-white/5 p-4 pb-8 space-y-4 z-20 shadow-[0_-5px_20px_rgba(0,0,0,0.2)]">
+<!-- Meta Text / Validation -->
+<div class="flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[#90a4cb] text-[16px]">info</span>
+<p class="text-[#90a4cb] text-xs font-medium leading-normal text-center">Minimum 5 steps required to save</p>
+</div>
+<!-- Primary Action -->
+<button id="nav-navigation" class="w-full h-14 bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all rounded-xl flex items-center justify-center gap-3 text-white shadow-lg shadow-primary/20">
+<div class="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+<span class="text-lg font-bold tracking-wide">Start Recording</span>
+</button>
+<!-- Secondary Actions -->
+<div class="grid grid-cols-2 gap-3">
+<button class="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-white/10 bg-transparent text-slate-400 dark:text-slate-500 font-medium text-sm transition-colors opacity-60 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">save_alt</span>
+                    Save Locally
+                </button>
+<button class="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 dark:border-white/10 bg-transparent text-slate-400 dark:text-slate-500 font-medium text-sm transition-colors opacity-60 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+                    Save &amp; Upload
+                </button>
+</div>
+</div>
+</div>
+<script src="js/app.js"></script>
+</body></html>
