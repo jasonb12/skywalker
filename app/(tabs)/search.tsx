@@ -21,15 +21,25 @@ import { BUSINESS_CATEGORIES, type BusinessCategory, type Business } from '@/lib
 import { useRouter } from 'expo-router';
 
 const CATEGORY_ICONS: Record<string, string> = {
-  'Food & Dining': '🍽️',
-  'Coffee & Cafe': '☕',
-  'Retail': '🛍️',
-  'Services': '✂️',
-  'Hotel': '🏨',
-  'Financial Services': '🏦',
-  'Pharmacy & Health': '💊',
-  'Entertainment': '🎭',
   'All': '📍',
+  'food': '🍽️',
+  'shopping': '🛍️',
+  'services': '✂️',
+  'health': '💊',
+  'hotel': '🏨',
+  'entertainment': '🎭',
+  'government': '🏛️',
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  'All': 'All',
+  'food': 'Food & Dining',
+  'shopping': 'Shopping',
+  'services': 'Services',
+  'health': 'Health',
+  'hotel': 'Hotels',
+  'entertainment': 'Entertainment',
+  'government': 'Government',
 };
 
 const MPLS_CENTER = { latitude: 44.9755, longitude: -93.2713 };
@@ -101,7 +111,7 @@ export default function SearchScreen() {
               {item.name}
             </Text>
             <Text style={[styles.bizCardMeta, { color: colors.muted }]} numberOfLines={1}>
-              {item.category} · {building?.name ?? ''}
+              {CATEGORY_LABELS[item.category] ?? item.category} · {building?.name ?? ''}
             </Text>
             <Text style={[styles.bizCardHours, { color: colors.muted }]} numberOfLines={1}>
               {item.skyway_hours}
@@ -173,7 +183,7 @@ export default function SearchScreen() {
                   { color: isActive ? '#FFFFFF' : colors.foreground },
                 ]}
               >
-                {cat}
+                {CATEGORY_LABELS[cat] ?? cat}
               </Text>
             </TouchableOpacity>
           );

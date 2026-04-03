@@ -1,0 +1,24 @@
+Map Rendering Analysis - Current State
+=======================================
+
+The web preview is now WORKING - it shows 80 buildings, 78 skyway segments, 35 businesses.
+The SVG map renders with nodes and edges on a dark background.
+
+Issues to fix:
+1. The map layout is very compressed/cluttered - all 80 buildings are crammed into a small area
+2. Building labels overlap heavily - they're unreadable
+3. The overall shape appears roughly correct (diagonal orientation matching Minneapolis grid)
+   but the specific positions need verification against the real skyway map
+4. The map needs better zoom/pan and label management
+5. On iOS, this should use Apple Maps with the skyway overlay
+
+Key observations from the screenshot:
+- Target Center is at bottom-left (correct - it's on the west side)
+- Government Plaza area is at top-center (correct - it's northeast)
+- Minneapolis Convention Center is at right side (correct - it's southeast)
+- The diagonal orientation is visible but the spacing between buildings is too compressed
+
+Next steps:
+- Verify GPS coordinates against Google Maps satellite view
+- Improve SVG map rendering with better spacing and label management
+- The native map on iOS will use Apple Maps which handles zoom/pan natively

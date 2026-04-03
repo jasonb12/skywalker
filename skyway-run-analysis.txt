@@ -1,0 +1,41 @@
+skyway.run Analysis
+====================
+
+Author: Hank Brekke-Peer (@hank@ieji.de)
+Source: Uses OpenStreetMap (OSM) data for the skyway paths
+Technology: Custom JS app with MapLibre/Mapbox-style rendering
+
+Key Data Source: OpenStreetMap
+- The config contains OSM node IDs (e.g., 244884027, 245395408, etc.)
+- The config contains OSM way IDs (e.g., startingWay: 413691183)
+- Uses "roadMerges" with OSM way IDs
+- Uses "simplifiedView" with OSM node IDs and coordinates
+
+The app fetches actual OSM way/node data and renders the skyway paths.
+The "startingWay" ID 413691183 is an OSM way that represents a skyway segment.
+
+Main JS bundle: /assets/main-CX50CuVD.js
+This bundle likely fetches OSM data via Overpass API or has it embedded.
+
+Named Routes from config (with coordinates):
+- C Ramp to Orpheum
+- Target Field Plaza to Capella Tower
+- Target Field to Radisson Plaza
+- AC Hotel to City Center
+- Marriott to Haaf
+- St. Thomas to 365 Nicollet
+- Xcel Energy to Lumos
+- Target Plaza South to RBC Plaza
+- Hyatt Regency to Thrivant HQ2
+- Marquette Plaza to US Bank Stadium
+- Foshay Tower to The Churchill
+- Government Center to Federal Courthouse
+- Federal Courthouse to Jerry Haaf
+- TriTech to Flour Exchange
+- HCMC
+
+Region bbox: [-93.2911698, 44.958116, -93.2432641, 44.9869343]
+Center: [-93.270621, 44.975609]
+Bearing: 30 degrees (the street grid rotation!)
+
+Action: Download the main JS bundle to find the OSM data or API calls.

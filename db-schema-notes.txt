@@ -1,0 +1,11 @@
+Existing beacons table schema:
+- id: UUID (PK)
+- created_at: timestamptz
+- updated_at: timestamptz
+- building_id: UUID (FK -> buildings.id)
+- hw_id: text (NOT NULL)
+- label: text (nullable)
+- metadata: jsonb (nullable)
+
+Need to add columns: uuid, major, minor, latitude, longitude, floor_level, tx_power
+OR use the existing schema: hw_id for beacon identifier, metadata for extra fields

@@ -16,6 +16,17 @@ export default function SettingsScreen() {
     dispatch({ type: 'TOGGLE_HAPTIC' });
     saveSettings({
       hapticEnabled: !state.hapticEnabled,
+      bleEnabled: state.bleEnabled,
+      distanceUnit: state.distanceUnit,
+    });
+  };
+
+  const handleToggleBle = () => {
+    haptic.selection();
+    dispatch({ type: 'TOGGLE_BLE' });
+    saveSettings({
+      hapticEnabled: state.hapticEnabled,
+      bleEnabled: !state.bleEnabled,
       distanceUnit: state.distanceUnit,
     });
   };
@@ -25,6 +36,7 @@ export default function SettingsScreen() {
     dispatch({ type: 'SET_DISTANCE_UNIT', unit });
     saveSettings({
       hapticEnabled: state.hapticEnabled,
+      bleEnabled: state.bleEnabled,
       distanceUnit: unit,
     });
   };
@@ -40,10 +52,70 @@ export default function SettingsScreen() {
     clearCache();
   };
 
+  // Determine positioning source label
+  const posSource = state.userPosition?.source ?? 'none';
+  const posLabel =
+    posSource === 'fused'
+      ? 'GPS + BLE Fused'
+      : posSource === 'ble'
+        ? 'BLE Beacons'
+        : posSource === 'gps'
+          ? 'GPS'
+          : posSource === 'dead-reckoning'
+            ? 'Dead Reckoning'
+            : 'Unavailable';
+
   return (
     <ScreenContainer className="flex-1">
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
+
+        {/* Positioning section */}
+        <Text style={[styles.sectionHeader, { color: colors.muted }]}>POSITIONING</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <View style={styles.rowContent}>
+              <Text style={[styles.rowLabel, { color: colors.foreground }]}>BLE Beacon Scanning</Text>
+              <Text style={[styles.rowSubtext, { color: colors.muted }]}>
+                Improves indoor positioning accuracy
+              </Text>
+            </View>
+            <Switch
+              value={state.bleEnabled}
+              onValueChange={handleToggleBle}
+              trackColor={{ false: colors.border, true: '#0066CC' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>BLE Status</Text>
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: state.bleScanning ? '#22C55E' : colors.muted },
+                ]}
+              />
+              <Text style={[styles.rowValue, { color: colors.muted }]}>
+                {state.bleScanning
+                  ? `Scanning (${state.bleBeaconsInRange} in range)`
+                  : 'Inactive'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.row, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Position Source</Text>
+            <Text style={[styles.rowValue, { color: colors.muted }]}>{posLabel}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Accuracy</Text>
+            <Text style={[styles.rowValue, { color: colors.muted }]}>
+              {state.userPosition
+                ? `${state.userPosition.accuracy.toFixed(1)}m`
+                : '—'}
+            </Text>
+          </View>
+        </View>
 
         {/* Navigation section */}
         <Text style={[styles.sectionHeader, { color: colors.muted }]}>NAVIGATION</Text>
@@ -152,8 +224,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 0.5,
   },
+  rowContent: { flex: 1, marginRight: 12 },
   rowLabel: { fontSize: 16 },
+  rowSubtext: { fontSize: 12, marginTop: 2 },
   rowValue: { fontSize: 16 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
   segmentControl: { flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#0066CC' },
   segment: { paddingHorizontal: 16, paddingVertical: 6 },
   segmentText: { fontSize: 14, fontWeight: '600' },

@@ -19,3 +19,30 @@
 - [x] Add icon mappings for all tabs
 - [x] Write unit tests for pathfinding, format, and reducer
 - [x] Write Supabase connection test
+- [x] Create Supabase beacons table and seed beacon data for skyway buildings
+- [x] Install and configure BLE scanning library (react-native-ble-plx)
+- [x] Build BLE beacon scanning service with RSSI-to-distance conversion
+- [x] Implement trilateration algorithm for BLE-based position estimation
+- [x] Build position fusion engine (GPS + BLE + dead-reckoning)
+- [x] Update NavigationProvider to use fused positioning
+- [x] Add BLE positioning status indicator to Map screen
+- [x] Add BLE toggle to Settings screen
+- [x] Write unit tests for trilateration and position fusion
+- [x] Fix skyway map data to match real Minneapolis Skyway system
+- [x] Research actual skyway routes from repo and online GIS sources
+- [x] Rebuild accurate nodes with real GPS coordinates for all skyway junctions
+- [x] Rebuild accurate edges matching real skyway bridge connections
+- [x] Update building data with correct locations
+- [x] Update business data with correct building associations
+- [x] Research real skyway layout from official maps and satellite imagery
+- [x] Rebuild all skyway nodes with accurate real-world GPS coordinates
+- [x] Rebuild all skyway edges to match actual diagonal/arch connections
+- [x] Verify map rendering matches real skyway layout visually
+- [x] Fix web preview "Loading skyway data..." issue (Supabase env vars not reaching client)
+- [x] Rebuild skyway map coordinates to accurately match real Minneapolis Skyway layout
+- [x] Ensure preview works correctly on iOS via Expo Go
+- [x] Restructure skyway data model from destination nodes to walkable paths
+- [x] Research accurate skyway path/corridor data from repo and online GIS sources (used skyway.run OSM data)
+- [x] Rebuild skyway as path segments with waypoints along corridors and bridges
+- [x] Update map rendering to show paths (not just node-to-node lines)
+- [x] Update pathfinding to navigate along paths

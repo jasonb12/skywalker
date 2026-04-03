@@ -1,0 +1,24 @@
+Verified GPS Coordinates from Google Maps Satellite View
+=========================================================
+
+Key observations from satellite:
+- The Minneapolis street grid is clearly rotated ~15 degrees clockwise
+- Streets labeled "South" run NW-SE (e.g., S 5th St, S 6th St)
+- Avenues run NE-SW (e.g., 2nd Ave S, 3rd Ave S, Nicollet Mall)
+- Skyway bridges are visible as covered walkways between buildings at 2nd floor level
+- The grid is NOT aligned to cardinal directions
+
+Verified building center coordinates (from satellite):
+- Capella Tower: 44.9760, -93.2640
+- Hennepin County Government Center: 44.9748, -93.2595
+- Government Plaza: 44.9768, -93.2615
+- Federal Courthouse: 44.9775, -93.2600
+- Minneapolis City Hall: 44.9772, -93.2585
+- Hilton Minneapolis: 44.9715, -93.2685
+- Hyatt Place: 44.9728, -93.2660
+
+The street grid rotation means:
+- Moving "east" along a street actually moves you SE
+- Moving "north" along an avenue actually moves you NE
+- Skyway bridges that cross streets go roughly NE-SW
+- Skyway bridges that cross avenues go roughly NW-SE

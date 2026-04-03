@@ -1,0 +1,13 @@
+Google My Maps - Minneapolis Downtown Skyway
+URL: https://www.google.com/maps/d/u/0/viewer?mid=16wnH3LoRhhjb3gH1v8H9j2_ScE_jtlAX
+
+Key observations:
+- Has 91+ line segments representing skyway paths (Line 2, Line 4, Line 6, Line 7, ... 91 more)
+- Shows the actual skyway paths as red/pink lines overlaid on the real street map
+- The paths are NOT straight lines between buildings - they follow the actual corridors
+- The paths clearly show the diagonal nature of the Minneapolis street grid
+- Many parking ramp markers (P icons) are shown
+- The skyway extends from Target Center area in the north to Convention Center/Loring Park in the south
+- The map has a KML download option which would give us the exact path coordinates!
+
+Key action: Download the KML file to extract exact skyway path coordinates.

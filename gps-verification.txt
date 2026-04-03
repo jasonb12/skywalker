@@ -1,0 +1,41 @@
+GPS Coordinate Verification for Key Minneapolis Skyway Buildings
+================================================================
+
+Source: latitude.to, latlong.net, maptons.com, Wikipedia
+
+IDS Center (80 S 8th St):
+  Verified: 44.9761, -93.2715 (from maptons: 44.9761367)
+  Current:  44.9740, -93.2718
+  ISSUE: Our lat is 0.002 too far south
+
+Target Center (600 N 1st Ave):
+  Verified: 44.9796, -93.2761 (from latlong.net: 44.979595, -93.276566)
+  Current:  44.9727, -93.2775
+  ISSUE: Our lat is 0.007 too far south! Target Center is NORTH of the skyway
+
+Minneapolis Convention Center:
+  Verified: 44.9690, -93.2650 (from latitude.to: 44°58'8.40"N = 44.9690)
+  Current:  44.9728, -93.2683
+  ISSUE: Our lat is too far north, lng too far west
+
+Key insight: Target Center at 44.9796 is NORTH of the skyway core.
+IDS Center at 44.9761 is in the middle. Convention Center at 44.9690 is SOUTH.
+
+The current data has everything compressed into a narrow band (44.9715 to 44.9774).
+The real skyway spans roughly 44.969 to 44.980 in latitude.
+
+The real Minneapolis downtown grid:
+- Streets run NW-SE (not pure E-W)
+- Avenues run NE-SW (not pure N-S)
+- The grid is rotated ~15° clockwise from true north
+- Nicollet Mall runs roughly NW-SE through the center
+- Hennepin Ave runs roughly NW-SE but diverges west
+
+Key verified coordinates:
+  Target Center:     44.9796, -93.2761
+  IDS Center:        44.9761, -93.2715
+  Foshay Tower:      44.9743, -93.2717
+  Wells Fargo Center: 44.9755, -93.2720
+  Government Center: 44.9770, -93.2650
+  Convention Center: 44.9690, -93.2650
+  Nicollet Mall:     runs from ~44.980 to ~44.970 along -93.272

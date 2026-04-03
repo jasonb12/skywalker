@@ -1,0 +1,33 @@
+Google Maps Satellite View - Key Observations
+==============================================
+
+From the satellite view at zoom level 17 centered on IDS Center:
+
+Visible buildings and their approximate positions:
+- IDS Center: center of view, at S 7th St / Nicollet Mall intersection
+- Capella Tower: east of IDS, across 2nd Ave S
+- Government Plaza: northeast, at 3rd Ave S / S 5th St
+- Hennepin County Government Center: east of Government Plaza
+- Baker Center: south of IDS, on Nicollet Mall
+- 60 South Sixth: north of IDS
+- Minneapolis City Center: northwest of IDS
+
+Street grid orientation:
+- Streets (S 5th St, S 6th St, S 7th St, S 8th St) run roughly NW-SE
+- Avenues (Nicollet Mall, 2nd Ave S, 3rd Ave S) run roughly NE-SW
+- The grid is rotated about 15° clockwise from cardinal directions
+
+The blue dot (my location marker) appears at approximately:
+- IDS Center: ~44.9761, -93.2715 (confirmed by search results)
+
+Key reference points from the satellite view:
+- Nicollet Mall runs NW-SE through the center
+- The skyway bridges are visible as enclosed walkways between buildings at 2nd floor level
+- The grid pattern is clearly diagonal, not orthogonal
+
+The current data lat range (44.9715 to 44.9774) is too compressed.
+Real skyway extends from:
+- North: Target Center area ~44.9796
+- South: Convention Center area ~44.9690
+- That's a span of ~0.0106 in latitude (about 1.2 km)
+- Our current span is only 0.0058 (about 650m) - roughly half the real size

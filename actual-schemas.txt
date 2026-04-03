@@ -1,0 +1,68 @@
+Actual Supabase Table Schemas
+==============================
+
+buildings:
+  id (uuid, NOT NULL)
+  created_at (timestamptz, NOT NULL)
+  updated_at (timestamptz, NOT NULL)
+  creator_user_id (uuid, NULL)
+  name (text, NOT NULL)
+  map_graph (jsonb, NULL)
+
+skyway_nodes:
+  id (uuid, NOT NULL)
+  building_id (uuid, NULL)
+  name (text, NULL)
+  latitude (float8, NOT NULL)
+  longitude (float8, NOT NULL)
+  floor_level (int, NULL)
+  node_type (text, NULL)
+  created_at (timestamptz, NULL)
+
+skyway_edges:
+  id (uuid, NOT NULL)
+  start_node_id (uuid, NOT NULL)
+  end_node_id (uuid, NOT NULL)
+  distance_meters (float8, NULL)
+  is_accessible (bool, NULL)
+  edge_type (text, NULL)
+  created_at (timestamptz, NULL)
+
+businesses:
+  id (uuid, NOT NULL)
+  building_id (uuid, NULL)
+  node_id (uuid, NULL)
+  name (text, NOT NULL)
+  category (text, NULL)
+  description (text, NULL)
+  floor_level (int, NULL)
+  phone (text, NULL)
+  website (text, NULL)
+  skyway_hours (text, NULL)
+  latitude (float8, NULL)
+  longitude (float8, NULL)
+  created_at (timestamptz, NULL)
+  updated_at (timestamptz, NULL)
+
+beacons:
+  id (uuid, NOT NULL)
+  created_at (timestamptz, NOT NULL)
+  updated_at (timestamptz, NOT NULL)
+  building_id (uuid, NOT NULL)
+  hw_id (text, NOT NULL)
+  label (text, NULL)
+  metadata (jsonb, NULL)
+  beacon_uuid (text, NULL)
+  major (int, NULL)
+  minor (int, NULL)
+  latitude (float8, NULL)
+  longitude (float8, NULL)
+  floor_level (int, NULL)
+  tx_power (int, NULL)
+
+Key differences from script:
+- buildings: NO address, latitude, longitude, skyway_hours, floor_count, has_skyway_access columns. Has map_graph (jsonb).
+- skyway_nodes: NO is_accessible, creator_user_id columns.
+- skyway_edges: Uses start_node_id/end_node_id (NOT from_node_id/to_node_id). NO is_bidirectional, creator_user_id.
+- businesses: Has node_id column. NO creator_user_id.
+- beacons: Uses hw_id (NOT uuid). Has label, metadata. NO creator_user_id.

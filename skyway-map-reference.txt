@@ -1,0 +1,91 @@
+Minneapolis Skyway Map Analysis - Accurate Building Positions and Connections
+=============================================================================
+
+KEY OBSERVATIONS FROM OFFICIAL MAPS:
+1. The Minneapolis street grid is rotated ~15 degrees clockwise from true north
+2. Streets run NW-SE (numbered streets) and NE-SW (avenues)
+3. The skyway system follows this rotated grid, NOT a perfect N-S/E-W grid
+4. Skyway bridges cross streets diagonally and at angles
+5. Nicollet Mall runs NW-SE through the center (the pink/magenta line on maps)
+
+STREET GRID (from NW to SE):
+- Hennepin Ave runs NE-SW on the west side
+- 1st Ave N, then Nicollet Mall, then Marquette Ave, then 2nd Ave S, 3rd Ave S, etc.
+- Streets run NW-SE: Washington Ave, 1st St, 2nd St, 3rd St... up to 10th St
+
+BUILDING LAYOUT (from maps, using Google Maps for GPS verification):
+
+ROW 1 - NORTH (around 3rd-4th St):
+- Target Center: 44.9795, -93.2762 (far NW)
+- Butler Square: 44.9787, -93.2735
+- Target Plaza: 44.9780, -93.2742
+- Block E: 44.9775, -93.2718
+- Lumber Exchange: 44.9780, -93.2700
+- City Center: 44.9770, -93.2715
+- Plymouth Building: 44.9773, -93.2695
+- Hennepin Center: 44.9772, -93.2680
+- 510 Marquette: 44.9768, -93.2665
+- Public Library: 44.9778, -93.2660
+- 330 S Second: 44.9782, -93.2635
+- Marquette Plaza: 44.9770, -93.2650
+- Public Service Center: 44.9780, -93.2610
+- Federal Courthouse: 44.9765, -93.2600
+
+ROW 2 - MIDDLE NORTH (around 5th-6th St):
+- First Avenue: 44.9760, -93.2745
+- LaSalle Plaza: 44.9745, -93.2740
+- Radisson Plaza: 44.9755, -93.2720
+- Macy's: 44.9752, -93.2710
+- 50 South Sixth: 44.9765, -93.2690
+- 33 South Sixth: 44.9758, -93.2690
+- Neiman Marcus: 44.9768, -93.2670
+- Gaviidae Common: 44.9758, -93.2660
+- Dain Rauscher Plaza: 44.9765, -93.2658
+- Westin Hotel: 44.9762, -93.2645
+- One Financial: 44.9760, -93.2630
+- 517 Ramp: 44.9765, -93.2625
+- US Bank Plaza: 44.9758, -93.2615
+- Crowne Plaza: 44.9755, -93.2650
+- Capella Tower: 44.9752, -93.2635
+- Qwest: 44.9755, -93.2610
+- Government Center: 44.9748, -93.2600
+
+ROW 3 - MIDDLE (around 7th St):
+- Marriott Hotel: 44.9750, -93.2700
+- Wells Fargo/Saks: 44.9748, -93.2680
+- Northstar Center: 44.9748, -93.2650
+- Marquette Hotel: 44.9745, -93.2670
+- Roanoke Building: 44.9745, -93.2660
+- IDS Center: 44.9740, -93.2680
+- Baker Center: 44.9740, -93.2640
+- US Trust: 44.9738, -93.2630
+- Grand Hotel: 44.9748, -93.2620
+- Hennepin County Gov Center: 44.9745, -93.2590
+
+ROW 4 - SOUTH (around 8th-9th St):
+- State Theater: 44.9738, -93.2735
+- US Bancorp: 44.9735, -93.2720
+- Midwest Plaza: 44.9735, -93.2700
+- Highland Bank: 44.9730, -93.2700
+- Medical Arts: 44.9728, -93.2685
+- Foshay Tower: 44.9730, -93.2660
+- TCF Tower: 44.9732, -93.2640
+- AT&T Tower: 44.9725, -93.2650
+- Young Quinlan: 44.9722, -93.2670
+- Campbell Mithun Tower: 44.9730, -93.2620
+- Minneapolis Energy Center: 44.9728, -93.2610
+- St. Olaf: 44.9732, -93.2625
+
+ROW 5 - FAR SOUTH (around 10th St and beyond):
+- Target Store: 44.9720, -93.2720
+- WCCO-TV: 44.9718, -93.2690
+- Hilton Minneapolis: 44.9718, -93.2650
+- Convention Center: 44.9710, -93.2700
+
+SKYWAY CONNECTIONS (bridges between buildings):
+The skyway bridges cross streets at various angles. Key connection patterns:
+- Along Nicollet Mall (NW-SE): buildings connected in a chain
+- Along Marquette Ave: parallel chain
+- Cross-connections between Nicollet and Marquette chains
+- Eastern extensions to Government Center, US Bank Stadium area
+- Western extensions to Target Center, LaSalle area

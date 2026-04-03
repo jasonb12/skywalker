@@ -34,6 +34,7 @@ export async function clearPaths(): Promise<void> {
 
 export interface AppSettings {
   hapticEnabled: boolean;
+  bleEnabled: boolean;
   distanceUnit: 'feet' | 'meters';
 }
 
@@ -44,7 +45,7 @@ export async function loadSettings(): Promise<AppSettings> {
   } catch (e) {
     console.warn('Failed to load settings:', e);
   }
-  return { hapticEnabled: true, distanceUnit: 'feet' };
+  return { hapticEnabled: true, bleEnabled: true, distanceUnit: 'feet' };
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {

@@ -3,7 +3,16 @@
 export interface Building {
   id: string;
   name: string;
+  map_graph?: {
+    latitude: number;
+    longitude: number;
+    skyway_hours?: string;
+    address?: string;
+    osmid?: string;
+  } | null;
+  creator_user_id?: string | null;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface SkywayNode {
@@ -23,7 +32,7 @@ export interface SkywayEdge {
   end_node_id: string;
   distance_meters: number;
   is_accessible: boolean;
-  edge_type: 'skyway' | 'corridor' | 'elevator' | 'stairs';
+  edge_type: 'skyway' | 'corridor' | 'tunnel' | 'elevator' | 'stairs';
   created_at?: string;
 }
 
@@ -69,24 +78,47 @@ export interface SavedPath {
   nodeIds: string[];
 }
 
+export interface Beacon {
+  id: string;
+  building_id: string | null;
+  hw_id: string;
+  label: string | null;
+  beacon_uuid: string;
+  major: number;
+  minor: number;
+  latitude: number;
+  longitude: number;
+  floor_level: number;
+  tx_power: number;
+  metadata: Record<string, unknown> | null;
+  created_at?: string;
+}
+
+export interface DetectedBeacon {
+  hw_id: string;
+  rssi: number;
+  distance: number; // estimated meters from RSSI
+  beacon?: Beacon; // matched beacon from DB
+}
+
 export interface UserPosition {
   latitude: number;
   longitude: number;
   accuracy: number;
   heading: number | null;
-  source: 'gps' | 'dead-reckoning' | 'snapped';
+  source: 'gps' | 'ble' | 'fused' | 'dead-reckoning' | 'snapped';
+  bleBeaconsInRange?: number;
 }
 
 export const BUSINESS_CATEGORIES = [
   'All',
-  'Food & Dining',
-  'Coffee & Cafe',
-  'Retail',
-  'Services',
-  'Hotel',
-  'Financial Services',
-  'Pharmacy & Health',
-  'Entertainment',
+  'food',
+  'shopping',
+  'services',
+  'health',
+  'hotel',
+  'entertainment',
+  'government',
 ] as const;
 
 export type BusinessCategory = typeof BUSINESS_CATEGORIES[number];

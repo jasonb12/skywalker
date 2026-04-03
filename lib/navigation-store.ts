@@ -31,8 +31,14 @@ export interface NavigationState {
   // History
   savedPaths: SavedPath[];
 
+  // BLE status
+  bleScanning: boolean;
+  bleBeaconsInRange: number;
+  bleBeaconsLoaded: number;
+
   // Settings
   hapticEnabled: boolean;
+  bleEnabled: boolean;
   distanceUnit: 'feet' | 'meters';
 }
 
@@ -46,6 +52,8 @@ export type NavigationAction =
   | { type: 'ADD_SAVED_PATH'; path: SavedPath }
   | { type: 'SET_SAVED_PATHS'; paths: SavedPath[] }
   | { type: 'TOGGLE_HAPTIC' }
+  | { type: 'TOGGLE_BLE' }
+  | { type: 'SET_BLE_STATUS'; beaconCount: number; scanning: boolean }
   | { type: 'SET_DISTANCE_UNIT'; unit: 'feet' | 'meters' };
 
 export const initialState: NavigationState = {
@@ -62,7 +70,11 @@ export const initialState: NavigationState = {
   isNavigating: false,
   isOffCourse: false,
   savedPaths: [],
+  bleScanning: false,
+  bleBeaconsInRange: 0,
+  bleBeaconsLoaded: 0,
   hapticEnabled: true,
+  bleEnabled: true,
   distanceUnit: 'feet',
 };
 
@@ -109,6 +121,10 @@ export function navigationReducer(state: NavigationState, action: NavigationActi
       return { ...state, savedPaths: action.paths };
     case 'TOGGLE_HAPTIC':
       return { ...state, hapticEnabled: !state.hapticEnabled };
+    case 'TOGGLE_BLE':
+      return { ...state, bleEnabled: !state.bleEnabled };
+    case 'SET_BLE_STATUS':
+      return { ...state, bleScanning: action.scanning, bleBeaconsInRange: action.beaconCount };
     case 'SET_DISTANCE_UNIT':
       return { ...state, distanceUnit: action.unit };
     default:
