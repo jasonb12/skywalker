@@ -1,0 +1,21 @@
+# Project TODO
+
+- [x] Configure theme colors for skyway brand
+- [x] Generate app logo and configure branding
+- [x] Set up Supabase client and environment variables
+- [x] Create data types/models for skyway graph
+- [x] Build Supabase data service to fetch nodes, edges, buildings, businesses
+- [x] Build A* pathfinding algorithm for skyway graph
+- [x] Build indoor positioning service (GPS + dead reckoning fallback)
+- [x] Set up tab navigation (Map, Search, History, Settings)
+- [x] Build Map screen with skyway route overlay and building markers
+- [x] Add live user position dot on map
+- [x] Build Search screen with category filters and business list
+- [x] Build Navigation overlay with turn-by-turn directions
+- [x] Add haptic feedback for turns, off-course, and arrival
+- [x] Build History screen with saved paths
+- [x] Build Settings screen with preferences
+- [x] Store navigation history locally with AsyncStorage
+- [x] Add icon mappings for all tabs
+- [x] Write unit tests for pathfinding, format, and reducer
+- [x] Write Supabase connection test

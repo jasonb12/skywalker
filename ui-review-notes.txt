@@ -1,0 +1,27 @@
+UI Review Notes - April 3, 2026
+
+Map Tab (Web):
+- Shows "Minneapolis Skyway Map" title
+- Shows stats: 40 Buildings, 25 Businesses, 50 Skyway Segments
+- Note about using Apple Maps on iOS
+- All 4 tabs visible: Map, Search, History, Settings
+
+Search Tab:
+- Search bar with placeholder text
+- Category filter chips: All, Food & Dining, Coffee & Cafe, Retail, Services, Hotel, Financial Services, Pharmacy & Health, Entertainment
+- Business cards showing: name, category, building, hours, distance
+- 25 businesses listed with distances from center
+- All sorted by distance
+
+Settings Tab:
+- Haptic Feedback toggle (on)
+- Distance Unit toggle (Feet/Meters)
+- Clear Navigation History button
+- Refresh Skyway Data button
+- About section: Version 1.0.0, 40 buildings, 25 businesses, 50 segments
+
+History Tab:
+- Empty state with "No navigation history" message
+- Completed routes will appear here
+
+All screens render correctly. No errors visible.
