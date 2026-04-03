@@ -46,3 +46,8 @@
 - [x] Rebuild skyway as path segments with waypoints along corridors and bridges
 - [x] Update map rendering to show paths (not just node-to-node lines)
 - [x] Update pathfinding to navigate along paths
+- [x] Study skyway.run map rendering (map tiles, path styling, labels)
+- [x] Replace SVG map with real map tile background (Leaflet + CartoDB Positron tiles)
+- [x] Render skyway paths as GeoJSON overlays on the real map (1207 segments)
+- [x] Match skyway.run visual style (10 colors, zoom-dependent labels, 154 buildings)
+- [x] Ensure map works on both web preview and native iOS

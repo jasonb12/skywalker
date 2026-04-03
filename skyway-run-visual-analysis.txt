@@ -1,0 +1,54 @@
+SKYWAY.RUN VISUAL ANALYSIS
+==========================
+
+MAP TECHNOLOGY:
+- Uses MapLibre GL JS (open-source Mapbox GL fork) with vector tiles
+- Canvas-based rendering (WebGL)
+- Custom map style with light gray streets/buildings background
+- Vector tile source: self-hosted at skyway.run/api/tile.json
+
+MAP STYLE:
+- Background: Light gray (#f0f0f0 or similar)
+- Streets: Slightly darker gray lines
+- Buildings: Very light gray outlines
+- The skyway paths are the PRIMARY visual element - everything else is muted
+
+SKYWAY PATH RENDERING:
+- Paths are rendered as thick colored lines (about 6-8px wide)
+- Each building/section has a DISTINCT COLOR:
+  - Red: Target Center / west side area
+  - Green: Gaviidae Common / City Center area  
+  - Blue: IDS Center / US Bank Plaza area
+  - Purple: Government Center / east side
+  - Orange/Brown: Marquette Plaza / north area
+  - Dark gray: Parking ramps and peripheral buildings
+  - Cyan: Foshay Tower area
+  - Magenta/Pink: Target Plaza / south area
+- The colors seem to correspond to building OWNERS or ZONES
+
+PATH STYLE:
+- Thick lines with rounded ends
+- "X" marks appear on paths that are CLOSED or restricted
+- Dots/circles at intersections and building entrances
+- Building names in ALL CAPS, black text, positioned near buildings
+
+BUILDING LABELS:
+- All caps text
+- Black color
+- Positioned adjacent to the building
+- Clear readable font
+
+KEY DIFFERENCES FROM OUR CURRENT MAP:
+1. We use a dark background SVG - they use a light map tile background
+2. We have thin lines - they have thick colored lines
+3. We don't color-code by zone - they do
+4. We don't show the street grid - they show it as background context
+5. Our labels overlap - theirs are well-positioned
+6. They show open/closed status with X marks
+
+APPROACH TO REPLICATE:
+- Use react-native-maps on native (Apple Maps) with polyline overlays
+- Use Leaflet or MapLibre on web with GeoJSON overlay
+- Color-code paths by building zone
+- Use thick lines with rounded caps
+- Show building labels in all caps
