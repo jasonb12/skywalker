@@ -29,6 +29,8 @@ export function getMapHTML(
   .nav-step { font-size: 15px; font-weight: 600; color: ${isDark ? '#ECEDEE' : '#1a1a1a'}; }
   .nav-meta { font-size: 12px; color: ${isDark ? '#9BA1A6' : '#666'}; margin-top: 3px; }
   .maplibregl-ctrl-attrib { font-size: 9px !important; opacity: 0.7; }
+  .maplibregl-ctrl-attrib a { color: ${isDark ? '#7cb8d0' : '#0a7ea4'}; text-decoration: none; }
+  .maplibregl-ctrl-attrib a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -46,14 +48,15 @@ ${navBarHTML}
           "https://c.basemaps.cartocdn.com/${isDark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}@2x.png"
         ],
         tileSize: 256,
-        attribution: "&copy; OpenStreetMap &copy; CARTO"
+        attribution: "&copy; <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> &copy; <a href='https://carto.com/attributions' target='_blank'>CARTO</a>"
       },
       "skyway": {
         type: "vector",
         tiles: [window.location.origin + "/api/skyway/tile/{z}/{x}/{y}.mvt"],
         minzoom: 14,
         maxzoom: 15,
-        bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446]
+        bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446],
+        attribution: "Skyway data &copy; <a href='https://skyway.run' target='_blank'>Skyway.run</a> via <a href='https://www.openstreetmap.org/user/hankbp/diary' target='_blank'>OpenStreetMap</a>"
       },
       "location": {
         type: "geojson",

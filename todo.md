@@ -55,3 +55,4 @@
 - [x] Fix MVT-to-GPS coordinate conversion - switched to serving skyway.run MVT tiles directly via Express proxy
 - [x] Replaced static skyway-data.json with live MapLibre vector tile rendering from skyway.run data
 - [x] Verify map paths match skyway.run rendering - now using identical tile data and matching layer styles
+- [x] Add proper OpenStreetMap and skyway.run attribution links to the map
