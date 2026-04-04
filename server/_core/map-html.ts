@@ -65,6 +65,10 @@ ${navBarHTML}
       "route": {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] }
+      },
+      "heatmap": {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] }
       }
     },
     glyphs: window.location.origin + "/api/skyway/fonts/{fontstack}/{range}.pbf",
@@ -266,6 +270,41 @@ ${navBarHTML}
         paint: { "text-color": "${isDark ? 'rgba(200,200,200,1)' : 'rgba(45,45,45,1)'}" }
       },
 
+      // === Heatmap overlay ===
+      {
+        id: "heatmap-heat",
+        source: "heatmap",
+        type: "circle",
+        layout: { "visibility": "none" },
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 14, 4, 16, 12, 18, 20],
+          "circle-color": ["interpolate", ["linear"], ["get", "deviceCount"],
+            1, "rgba(0, 128, 255, 0.3)",
+            5, "rgba(0, 200, 100, 0.4)",
+            10, "rgba(255, 200, 0, 0.5)",
+            20, "rgba(255, 80, 0, 0.6)"
+          ],
+          "circle-blur": 0.8,
+          "circle-opacity": 0.7
+        }
+      },
+      {
+        id: "heatmap-points",
+        source: "heatmap",
+        type: "circle",
+        minzoom: 17,
+        layout: { "visibility": "none" },
+        paint: {
+          "circle-radius": 4,
+          "circle-color": ["case",
+            ["==", ["get", "source"], "calibration"], "#FF6600",
+            "#0088FF"
+          ],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "${isDark ? '#222' : '#fff'}"
+        }
+      },
+
       // === Navigation overlays ===
       {
         id: "route-outline",
@@ -348,6 +387,20 @@ ${navBarHTML}
         }
         if (msg.type === 'flyTo' && msg.lng && msg.lat) {
           map.flyTo({ center: [msg.lng, msg.lat], zoom: msg.zoom || 16 });
+        }
+        if (msg.type === 'updateHeatmap' && msg.features) {
+          map.getSource('heatmap').setData({
+            type: 'FeatureCollection',
+            features: msg.features
+          });
+        }
+        if (msg.type === 'toggleHeatmap') {
+          var vis = map.getLayoutProperty('heatmap-heat', 'visibility');
+          var newVis = vis === 'visible' ? 'none' : 'visible';
+          map.setLayoutProperty('heatmap-heat', 'visibility', newVis);
+          map.setLayoutProperty('heatmap-points', 'visibility', newVis);
+          // Post back the new state
+          window.parent.postMessage(JSON.stringify({ type: 'heatmapState', visible: newVis === 'visible' }), '*');
         }
       } catch(err) {
         // ignore parse errors

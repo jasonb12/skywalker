@@ -38,6 +38,10 @@ export interface NavigationState {
   bleDevices: DiscoveredDevice[];
   bleFingerprintCount: number;
 
+  // Heatmap
+  heatmapVisible: boolean;
+  heatmapData: Array<{ latitude: number; longitude: number; deviceCount: number; source: string }>;
+
   // Settings
   hapticEnabled: boolean;
   bleEnabled: boolean;
@@ -56,7 +60,9 @@ export type NavigationAction =
   | { type: 'TOGGLE_HAPTIC' }
   | { type: 'TOGGLE_BLE' }
   | { type: 'SET_BLE_STATUS'; deviceCount: number; scanning: boolean; devices: DiscoveredDevice[]; fingerprintCount: number }
-  | { type: 'SET_DISTANCE_UNIT'; unit: 'feet' | 'meters' };
+  | { type: 'SET_DISTANCE_UNIT'; unit: 'feet' | 'meters' }
+  | { type: 'TOGGLE_HEATMAP' }
+  | { type: 'SET_HEATMAP_DATA'; data: Array<{ latitude: number; longitude: number; deviceCount: number; source: string }> };
 
 export const initialState: NavigationState = {
   buildings: [],
@@ -76,6 +82,8 @@ export const initialState: NavigationState = {
   bleDevicesInRange: 0,
   bleDevices: [],
   bleFingerprintCount: 0,
+  heatmapVisible: false,
+  heatmapData: [],
   hapticEnabled: true,
   bleEnabled: true,
   distanceUnit: 'feet',
@@ -136,6 +144,10 @@ export function navigationReducer(state: NavigationState, action: NavigationActi
       };
     case 'SET_DISTANCE_UNIT':
       return { ...state, distanceUnit: action.unit };
+    case 'TOGGLE_HEATMAP':
+      return { ...state, heatmapVisible: !state.heatmapVisible };
+    case 'SET_HEATMAP_DATA':
+      return { ...state, heatmapData: action.data };
     default:
       return state;
   }

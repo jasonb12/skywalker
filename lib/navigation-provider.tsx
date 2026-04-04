@@ -19,6 +19,8 @@ import {
   captureFingerprint,
   estimatePosition,
   getFingerprintCount,
+  setSyncCallback,
+  getFingerprintLocations,
 } from './ble-fingerprint-store';
 import type { UserPosition } from './types';
 
@@ -54,8 +56,21 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       if (settings.distanceUnit !== 'feet') dispatch({ type: 'SET_DISTANCE_UNIT', unit: settings.distanceUnit });
       bleEnabled.current = settings.bleEnabled !== false;
 
-      // Initialize fingerprint store
+      // Initialize fingerprint store with sync
       await initFingerprintStore();
+
+      // Set up sync callback to update heatmap data
+      setSyncCallback((stats) => {
+        console.log(`[FP-Sync] Local: ${stats.localCount}, Remote: ${stats.remoteCount}, Up: ${stats.uploaded}, Down: ${stats.downloaded}`);
+        const locations = getFingerprintLocations();
+        dispatch({ type: 'SET_HEATMAP_DATA', data: locations });
+      });
+
+      // Load initial heatmap data
+      const initialLocations = getFingerprintLocations();
+      if (initialLocations.length > 0) {
+        dispatch({ type: 'SET_HEATMAP_DATA', data: initialLocations });
+      }
     })();
   }, []);
 

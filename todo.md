@@ -70,3 +70,8 @@
 - [x] Integrate BLE-estimated position into navigation system (fuses with GPS when accuracy is poor)
 - [x] Build "Show Details" BLE panel UI showing discovered devices and signal strengths
 - [x] Display BLE-estimated position on the map (via position fusion in navigation provider)
+- [x] Create Supabase table for BLE fingerprints (shared across all users)
+- [x] Build fingerprint sync service (local AsyncStorage <-> Supabase)
+- [x] Share BLE fingerprints across all users via Supabase
+- [x] Add fingerprint calibration mode with manual "Record Location" button
+- [x] Build heatmap overlay showing fingerprint coverage density on map
