@@ -56,3 +56,6 @@
 - [x] Replaced static skyway-data.json with live MapLibre vector tile rendering from skyway.run data
 - [x] Verify map paths match skyway.run rendering - now using identical tile data and matching layer styles
 - [x] Add proper OpenStreetMap and skyway.run attribution links to the map
+- [x] Fix web preview/simulator rendering issues - removed ScreenContainer for edge-to-edge map, fixed layout
+- [x] Fix iPhone native map - replaced react-native-maps with @maplibre/maplibre-react-native using same vector tile style
+- [x] Ensure both native and web use the same MapLibre-based map rendering - both use identical tile proxy and style layers

@@ -4,10 +4,26 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, Polyline, Circle } from 'react-native-maps';
+import {
+  MapView,
+  Camera,
+  VectorSource,
+  RasterSource,
+  RasterLayer,
+  LineLayer,
+  CircleLayer,
+  SymbolLayer,
+  FillLayer,
+  ShapeSource,
+  UserLocation,
+  type MapViewRef,
+  type CameraRef,
+} from '@maplibre/maplibre-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/use-colors';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
 import { haptic } from '@/lib/haptics';
 import { formatDistance, formatTime } from '@/lib/format';
@@ -16,9 +32,10 @@ import { findPath, buildRoute } from '@/lib/pathfinding';
 import { savePath } from '@/lib/storage';
 import type { SavedPath, NavigationStep } from '@/lib/types';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { getApiBaseUrl } from '@/constants/oauth';
 
-const MPLS_CENTER = { latitude: 44.9755, longitude: -93.2713 };
-const MPLS_DELTA = { latitudeDelta: 0.012, longitudeDelta: 0.008 };
+const MPLS_CENTER: [number, number] = [-93.270, 44.976];
+const DEFAULT_ZOOM = 15;
 
 function getDirectionIcon(dir: NavigationStep['direction']): string {
   switch (dir) {
@@ -34,11 +51,16 @@ function getDirectionIcon(dir: NavigationStep['direction']): string {
 
 export default function NativeMap() {
   const colors = useColors();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const { state, dispatch } = useNavigation();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<MapViewRef>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
   const [showSteps, setShowSteps] = useState(false);
+
+  const apiBase = useMemo(() => getApiBaseUrl(), []);
 
   const nodeMap = useMemo(
     () => new Map(state.nodes.map((n) => [n.id, n])),
@@ -50,33 +72,272 @@ export default function NativeMap() {
     [state.buildings]
   );
 
-  // Skyway polyline coordinates
-  const skywayLines = useMemo(() => {
-    return state.edges.map((edge) => {
-      const start = nodeMap.get(edge.start_node_id);
-      const end = nodeMap.get(edge.end_node_id);
-      if (!start || !end) return null;
-      return {
-        id: edge.id,
-        coordinates: [
-          { latitude: start.latitude, longitude: start.longitude },
-          { latitude: end.latitude, longitude: end.longitude },
-        ],
-        type: edge.edge_type,
-      };
-    }).filter(Boolean) as { id: string; coordinates: { latitude: number; longitude: number }[]; type: string }[];
-  }, [state.edges, nodeMap]);
+  // Build the MapLibre style JSON matching skyway.run
+  const mapStyle = useMemo(() => {
+    const baseTile = isDark ? 'dark_all' : 'light_all';
+    return {
+      version: 8 as const,
+      sources: {
+        'carto-positron': {
+          type: 'raster' as const,
+          tiles: [
+            `https://a.basemaps.cartocdn.com/${baseTile}/{z}/{x}/{y}@2x.png`,
+            `https://b.basemaps.cartocdn.com/${baseTile}/{z}/{x}/{y}@2x.png`,
+            `https://c.basemaps.cartocdn.com/${baseTile}/{z}/{x}/{y}@2x.png`,
+          ],
+          tileSize: 256,
+          attribution: '© OpenStreetMap © CARTO',
+        },
+        'skyway': {
+          type: 'vector' as const,
+          tiles: [`${apiBase}/api/skyway/tile/{z}/{x}/{y}.mvt`],
+          minzoom: 14,
+          maxzoom: 15,
+          bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446],
+          attribution: 'Skyway data © Skyway.run via OpenStreetMap',
+        },
+      },
+      glyphs: `${apiBase}/api/skyway/fonts/{fontstack}/{range}.pbf`,
+      layers: [
+        {
+          id: 'base-map',
+          type: 'raster' as const,
+          source: 'carto-positron',
+          minzoom: 0,
+          maxzoom: 20,
+        },
+        // Zoomed out: footway-simple + building-simple
+        {
+          id: 'simple-footway-path',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'footway-simple',
+          minzoom: 0,
+          maxzoom: 16.5,
+          filter: ['all', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1']],
+          layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
+          },
+        },
+        {
+          id: 'simple-footway-tunnel',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'footway-simple',
+          minzoom: 0,
+          maxzoom: 16.5,
+          filter: ['all', ['!=', ['coalesce', ['get', 'layer'], ['get', 'level']], '1']],
+          layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
+            'line-dasharray': [0.9, 0.9],
+          },
+        },
+        {
+          id: 'simple-building-dot',
+          type: 'circle' as const,
+          source: 'skyway',
+          'source-layer': 'building-simple',
+          minzoom: 15,
+          maxzoom: 16.5,
+          filter: ['all', ['!has', 'dot']],
+          paint: {
+            'circle-radius': ['interpolate', ['exponential', 2], ['zoom'], 15, 8, 16, 15],
+            'circle-color': ['get', 'color'],
+          },
+        },
+        {
+          id: 'simple-building-name',
+          type: 'symbol' as const,
+          source: 'skyway',
+          'source-layer': 'building-simple',
+          minzoom: 15,
+          maxzoom: 16.5,
+          filter: ['all', ['!has', 'dot']],
+          layout: {
+            'symbol-placement': 'point' as const,
+            'text-field': ['get', 'name'],
+            'text-font': ['Overpass Bold'],
+            'text-size': 8,
+            'text-transform': 'uppercase' as const,
+            'text-allow-overlap': false,
+            'text-anchor': 'center' as const,
+            'text-max-width': 8,
+            'text-padding': 0,
+          },
+          paint: {
+            'text-color': isDark ? 'rgba(220,220,220,1)' : 'rgba(0,0,0,1)',
+          },
+        },
+        // Zoomed in: full detail layers
+        {
+          id: 'roadway-path',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'roadway',
+          paint: { 'line-color': isDark ? '#333' : '#dedcdd', 'line-width': 8 },
+        },
+        {
+          id: 'roadway-name',
+          type: 'symbol' as const,
+          source: 'skyway',
+          'source-layer': 'roadway',
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Overpass Italic'],
+            'text-rotation-alignment': 'map' as const,
+            'symbol-placement': 'line' as const,
+            'text-size': { stops: [[14, 6], [18, 18]], base: 2 } as any,
+            'text-transform': 'uppercase' as const,
+            'text-allow-overlap': false,
+            'text-keep-upright': true,
+            'text-ignore-placement': true,
+          },
+          paint: { 'text-color': isDark ? '#888' : '#78787d' },
+        },
+        {
+          id: 'building-fill',
+          type: 'fill' as const,
+          source: 'skyway',
+          'source-layer': 'building',
+          minzoom: 16.5,
+          paint: {
+            'fill-color': isDark ? '#2a2a2a' : '#e8e8e8',
+            'fill-opacity': 0.8,
+          },
+        },
+        {
+          id: 'building-outline',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'building',
+          minzoom: 16.5,
+          paint: { 'line-color': isDark ? '#444' : '#c0c0c0', 'line-width': 1 },
+        },
+        {
+          id: 'footway-tunnel',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'footway',
+          minzoom: 16.5,
+          filter: ['all', ['!=', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['has', 'color']],
+          layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': { stops: [[14, 1], [17, 6]], base: 2 } as any,
+            'line-dasharray': [0.4, 0.6],
+          },
+        },
+        {
+          id: 'footway-path',
+          type: 'line' as const,
+          source: 'skyway',
+          'source-layer': 'footway',
+          minzoom: 16.5,
+          filter: ['all', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['has', 'color']],
+          layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-width': { stops: [[14, 1], [15, 6], [18, 9]], base: 2 } as any,
+          },
+        },
+        {
+          id: 'building-name',
+          type: 'symbol' as const,
+          source: 'skyway',
+          'source-layer': 'building-names',
+          minzoom: 16.5,
+          filter: ['all', ['has', 'name']],
+          layout: {
+            'symbol-placement': 'point' as const,
+            'text-field': ['get', 'name'],
+            'text-font': ['Overpass Bold'],
+            'text-size': { stops: [[16, 9], [18, 14]], base: 2 } as any,
+            'text-transform': 'uppercase' as const,
+            'text-allow-overlap': false,
+            'text-anchor': 'center' as const,
+            'text-max-width': 8,
+            'text-padding': 2,
+          },
+          paint: {
+            'text-color': isDark ? 'rgba(220,220,220,1)' : 'rgba(0,0,0,1)',
+            'text-halo-color': isDark ? 'rgba(21,23,24,0.9)' : 'rgba(255,255,255,0.9)',
+            'text-halo-width': 2,
+          },
+        },
+        {
+          id: 'poi-spot',
+          type: 'circle' as const,
+          source: 'skyway',
+          'source-layer': 'poi',
+          maxzoom: 17.5,
+          paint: { 'circle-radius': 2, 'circle-color': isDark ? 'rgba(100,100,100,1)' : 'rgba(205,205,205,1)' },
+        },
+        {
+          id: 'label-poi-active',
+          type: 'symbol' as const,
+          source: 'skyway',
+          'source-layer': 'poi',
+          minzoom: 17.5,
+          filter: ['all', ['==', 'level', '1']],
+          layout: {
+            'symbol-placement': 'point' as const,
+            'text-field': ['get', 'name'],
+            'text-font': ['Overpass Regular'],
+            'text-size': 12,
+          },
+          paint: { 'text-color': isDark ? 'rgba(200,200,200,1)' : 'rgba(45,45,45,1)' },
+        },
+      ],
+    };
+  }, [isDark, apiBase]);
 
-  // Active route coordinates
-  const routeCoords = useMemo(() => {
-    if (!state.activeRoute) return [];
-    return state.activeRoute.nodeIds
+  // Route GeoJSON for active navigation
+  const routeGeoJSON = useMemo(() => {
+    if (!state.activeRoute) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
+    const coords = state.activeRoute.nodeIds
       .map((id) => {
-        const node = nodeMap.get(id);
-        return node ? { latitude: node.latitude, longitude: node.longitude } : null;
+        const n = nodeMap.get(id);
+        return n ? [n.longitude, n.latitude] : null;
       })
-      .filter(Boolean) as { latitude: number; longitude: number }[];
+      .filter(Boolean) as [number, number][];
+
+    if (coords.length < 2) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
+
+    return {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        geometry: { type: 'LineString' as const, coordinates: coords },
+        properties: {},
+      }],
+    };
   }, [state.activeRoute, nodeMap]);
+
+  // User location GeoJSON
+  const userLocationGeoJSON = useMemo(() => {
+    if (!state.userPosition) {
+      return { type: 'FeatureCollection' as const, features: [] };
+    }
+    return {
+      type: 'FeatureCollection' as const,
+      features: [{
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [state.userPosition.longitude, state.userPosition.latitude],
+        },
+        properties: {},
+      }],
+    };
+  }, [state.userPosition]);
 
   // Navigation tracking
   useEffect(() => {
@@ -142,17 +403,18 @@ export default function NativeMap() {
 
   const handleRecenter = useCallback(() => {
     haptic.light();
-    if (state.userPosition && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: state.userPosition.latitude,
-          longitude: state.userPosition.longitude,
-          ...MPLS_DELTA,
-        },
-        500
-      );
-    } else if (mapRef.current) {
-      mapRef.current.animateToRegion({ ...MPLS_CENTER, ...MPLS_DELTA }, 500);
+    if (state.userPosition && cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: [state.userPosition.longitude, state.userPosition.latitude],
+        zoomLevel: 16,
+        animationDuration: 500,
+      });
+    } else if (cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: MPLS_CENTER,
+        zoomLevel: DEFAULT_ZOOM,
+        animationDuration: 500,
+      });
     }
   }, [state.userPosition]);
 
@@ -162,7 +424,7 @@ export default function NativeMap() {
       const business = state.businesses.find((b) => b.id === businessId);
       if (!business) return;
 
-      const userPos = state.userPosition ?? { latitude: MPLS_CENTER.latitude, longitude: MPLS_CENTER.longitude };
+      const userPos = state.userPosition ?? { latitude: 44.976, longitude: -93.270 };
       const startNode = await findNearestNode(userPos.latitude, userPos.longitude);
       if (!startNode) return;
 
@@ -176,18 +438,16 @@ export default function NativeMap() {
       dispatch({ type: 'START_NAVIGATION', route, business, destNode: endNode });
       setSelectedBusiness(null);
 
-      if (mapRef.current) {
-        try {
-          mapRef.current.fitToCoordinates(
-            pathIds.map((id) => {
-              const n = nodeMap.get(id);
-              return n ? { latitude: n.latitude, longitude: n.longitude } : null;
-            }).filter(Boolean) as { latitude: number; longitude: number }[],
-            { edgePadding: { top: 120, right: 40, bottom: 200, left: 40 }, animated: true }
-          );
-        } catch (e) {
-          // ignore
-        }
+      // Fit camera to route bounds
+      const routeNodes = pathIds
+        .map((id) => nodeMap.get(id))
+        .filter(Boolean);
+      if (routeNodes.length > 0 && cameraRef.current) {
+        const lngs = routeNodes.map((n) => n!.longitude);
+        const lats = routeNodes.map((n) => n!.latitude);
+        const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+        const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+        cameraRef.current.fitBounds(ne, sw, [120, 40, 200, 40], 500);
       }
     },
     [state.businesses, state.userPosition, state.nodes, state.edges, nodeMap, dispatch]
@@ -206,94 +466,65 @@ export default function NativeMap() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        initialRegion={{ ...MPLS_CENTER, ...MPLS_DELTA }}
-        showsUserLocation={false}
-        showsCompass={true}
-        showsScale={true}
-        mapType="standard"
+        mapStyle={mapStyle as any}
+        logoEnabled={false}
+        attributionEnabled={true}
+        attributionPosition={{ bottom: 8, left: 8 }}
+        compassEnabled={true}
+        pitchEnabled={false}
+        rotateEnabled={false}
       >
-        {/* Skyway route lines */}
-        {skywayLines.map((line) => (
-          <Polyline
-            key={line.id}
-            coordinates={line.coordinates}
-            strokeColor={line.type === 'skyway' ? '#0066CC88' : '#8B5CF688'}
-            strokeWidth={3}
-            lineDashPattern={line.type === 'skyway' ? undefined : [5, 5]}
-          />
-        ))}
+        <Camera
+          ref={cameraRef}
+          defaultSettings={{
+            centerCoordinate: MPLS_CENTER,
+            zoomLevel: DEFAULT_ZOOM,
+          }}
+        />
 
-        {/* Active route highlight */}
-        {state.isNavigating && routeCoords.length > 1 && (
-          <Polyline
-            coordinates={routeCoords}
-            strokeColor="#0066CC"
-            strokeWidth={6}
-          />
-        )}
-
-        {/* Building entrance markers */}
-        {state.nodes
-          .filter((n) => n.node_type === 'entrance' || n.node_type === 'landmark')
-          .map((node) => {
-            const building = node.building_id ? buildingMap.get(node.building_id) : null;
-            return (
-              <Marker
-                key={node.id}
-                coordinate={{ latitude: node.latitude, longitude: node.longitude }}
-                title={building?.name ?? node.name}
-                description={node.node_type === 'landmark' ? 'Landmark' : 'Skyway Entrance'}
-                pinColor="#8B5CF6"
-                opacity={0.8}
-              />
-            );
-          })}
-
-        {/* Business markers */}
-        {state.businesses.map((biz) => (
-          <Marker
-            key={biz.id}
-            coordinate={{ latitude: biz.latitude, longitude: biz.longitude }}
-            title={biz.name}
-            description={biz.category}
-            pinColor="#0066CC"
-            onCalloutPress={() => {
-              setSelectedBusiness(biz.id);
+        {/* Route overlay */}
+        <ShapeSource id="route-source" shape={routeGeoJSON as any}>
+          <LineLayer
+            id="route-outline"
+            style={{
+              lineWidth: 10,
+              lineColor: '#1a73e8',
+              lineOpacity: 0.3,
+              lineCap: 'round',
+              lineJoin: 'round',
             }}
           />
-        ))}
-
-        {/* User position dot */}
-        {state.userPosition && (
-          <>
-            <Circle
-              center={{ latitude: state.userPosition.latitude, longitude: state.userPosition.longitude }}
-              radius={state.userPosition.accuracy}
-              fillColor="rgba(0, 102, 204, 0.1)"
-              strokeColor="rgba(0, 102, 204, 0.3)"
-              strokeWidth={1}
-            />
-            <Circle
-              center={{ latitude: state.userPosition.latitude, longitude: state.userPosition.longitude }}
-              radius={4}
-              fillColor="#0066CC"
-              strokeColor="#FFFFFF"
-              strokeWidth={2}
-            />
-          </>
-        )}
-
-        {/* Destination marker */}
-        {state.destinationNode && state.isNavigating && (
-          <Marker
-            coordinate={{
-              latitude: state.destinationNode.latitude,
-              longitude: state.destinationNode.longitude,
+          <LineLayer
+            id="route-path"
+            style={{
+              lineWidth: 5,
+              lineColor: '#1a73e8',
+              lineCap: 'round',
+              lineJoin: 'round',
             }}
-            title={state.destinationBusiness?.name ?? state.destinationNode.name}
-            pinColor="#10B981"
           />
-        )}
+        </ShapeSource>
+
+        {/* User location overlay */}
+        <ShapeSource id="user-location-source" shape={userLocationGeoJSON as any}>
+          <CircleLayer
+            id="user-location-pulse"
+            style={{
+              circleRadius: 20,
+              circleColor: '#4285f4',
+              circleOpacity: 0.15,
+            }}
+          />
+          <CircleLayer
+            id="user-location-dot"
+            style={{
+              circleRadius: 8,
+              circleColor: '#4285f4',
+              circleStrokeWidth: 2.5,
+              circleStrokeColor: '#ffffff',
+            }}
+          />
+        </ShapeSource>
       </MapView>
 
       {/* Top navigation banner */}

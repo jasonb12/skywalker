@@ -6,7 +6,6 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { ScreenContainer } from '@/components/screen-container';
 import { useColors } from '@/hooks/use-colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
@@ -16,6 +15,8 @@ import { getApiBaseUrl } from '@/constants/oauth';
  * Web map using MapLibre GL JS with skyway.run's vector tile data.
  * The map HTML is served from the Express server (/api/skyway/map)
  * so the iframe has a proper origin and MapLibre workers can fetch tiles.
+ *
+ * No ScreenContainer here — the map should fill edge-to-edge like a native map.
  */
 function WebMapView() {
   const colors = useColors();
@@ -88,24 +89,26 @@ function WebMapView() {
   }, [state.userPosition, sendMessage]);
 
   return (
-    <ScreenContainer edges={['top', 'left', 'right']} className="flex-1">
-      <View style={styles.mapContainer}>
-        {Platform.OS === 'web' ? (
-          <iframe
-            ref={iframeRef as any}
-            src={mapUrl}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              borderRadius: 0,
-            }}
-            title="Skyway Map"
-            allow="geolocation"
-          />
-        ) : null}
-      </View>
-    </ScreenContainer>
+    <View style={styles.fullScreen}>
+      {Platform.OS === 'web' ? (
+        <iframe
+          ref={iframeRef as any}
+          src={mapUrl}
+          style={{
+            position: 'absolute' as any,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100%',
+            height: '100%',
+            border: 'none',
+          }}
+          title="Skyway Map"
+          allow="geolocation"
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -128,7 +131,7 @@ export default function MapScreen() {
     return <WebMapView />;
   }
 
-  // Native: use NativeMapComponent
+  // Native: use MapLibre React Native component
   const NativeMapComponent = require('@/components/native-map').default;
   return <NativeMapComponent />;
 }
@@ -136,8 +139,8 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 16 },
-  mapContainer: {
+  fullScreen: {
     flex: 1,
-    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
   },
 });
