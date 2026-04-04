@@ -98,7 +98,7 @@ export default function SettingsScreen() {
               />
               <Text style={[styles.rowValue, { color: colors.muted }]}>
                 {state.bleScanning
-                  ? `Scanning (${state.bleBeaconsInRange} in range)`
+                  ? `Scanning (${state.bleDevicesInRange} devices, ${state.bleFingerprintCount} fingerprints)`
                   : 'Inactive'}
               </Text>
             </View>

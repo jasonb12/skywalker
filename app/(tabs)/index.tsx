@@ -1,15 +1,17 @@
-import React, { useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useColors } from '@/hooks/use-colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
 import { getApiBaseUrl } from '@/constants/oauth';
+import { BleDetailsPanel } from '@/components/ble-details-panel';
 
 /**
  * Web map using MapLibre GL JS with skyway.run's vector tile data.
@@ -112,9 +114,44 @@ function WebMapView() {
   );
 }
 
+function BleStatusPill({ onPress }: { onPress: () => void }) {
+  const colors = useColors();
+  const { state } = useNavigation();
+
+  const deviceCount = state.bleDevicesInRange;
+  const isScanning = state.bleScanning;
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[
+        styles.blePill,
+        {
+          backgroundColor: colors.background,
+          borderColor: colors.border,
+          shadowColor: '#000',
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.bleDot,
+          { backgroundColor: isScanning ? '#22C55E' : colors.muted },
+        ]}
+      />
+      <Text style={[styles.blePillText, { color: colors.foreground }]}>
+        {isScanning ? `${deviceCount} BLE` : 'BLE Off'}
+      </Text>
+      <Text style={[styles.blePillChevron, { color: colors.muted }]}>{'>'}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function MapScreen() {
   const colors = useColors();
   const { state } = useNavigation();
+  const [bleDetailsVisible, setBleDetailsVisible] = useState(false);
 
   if (!state.dataLoaded) {
     return (
@@ -127,13 +164,27 @@ export default function MapScreen() {
     );
   }
 
-  if (Platform.OS === 'web') {
-    return <WebMapView />;
-  }
+  const mapContent = Platform.OS === 'web'
+    ? <WebMapView />
+    : (() => {
+        const NativeMapComponent = require('@/components/native-map').default;
+        return <NativeMapComponent />;
+      })();
 
-  // Native: use MapLibre React Native component
-  const NativeMapComponent = require('@/components/native-map').default;
-  return <NativeMapComponent />;
+  return (
+    <View style={styles.fullScreen}>
+      {mapContent}
+
+      {/* BLE Status Pill - floating button */}
+      <BleStatusPill onPress={() => setBleDetailsVisible(true)} />
+
+      {/* BLE Details Panel */}
+      <BleDetailsPanel
+        visible={bleDetailsVisible}
+        onClose={() => setBleDetailsVisible(false)}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -142,5 +193,34 @@ const styles = StyleSheet.create({
   fullScreen: {
     flex: 1,
     backgroundColor: '#f0f0f0',
+  },
+  blePill: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  bleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  blePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  blePillChevron: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

@@ -1,80 +1,108 @@
 /**
- * BLE Beacon Scanner Service
+ * BLE Scanner Service — Passive Discovery Mode
  *
- * Scans for iBeacon-compatible BLE beacons in the Minneapolis Skyway.
- * Converts RSSI to distance estimates and matches detected beacons
- * against the known beacon database from Supabase.
+ * Scans for ALL nearby BLE devices (not just iBeacons).
+ * Tracks every device's identifier, name, RSSI with exponential smoothing,
+ * and last-seen timestamp. Provides a live snapshot of the BLE environment
+ * that can be used for fingerprint-based indoor positioning.
  *
  * On web, this module is a no-op since BLE is not available.
  */
 
 import { Platform } from 'react-native';
-import type { Beacon, DetectedBeacon } from './types';
 
-// The skyway beacon UUID (all beacons share this)
-export const SKYWAY_BEACON_UUID = 'E2C56DB5-DFFB-48D2-B060-D0F5A71096E0';
+// ─── Types ───────────────────────────────────────────────────────────
 
-// Path loss exponent for indoor environments (2.0 = free space, 2.5-4.0 = indoor)
-const PATH_LOSS_EXPONENT = 2.7;
-
-// Reference RSSI at 1 meter (calibrated per beacon, default -59)
-const DEFAULT_TX_POWER = -59;
-
-// RSSI smoothing factor (exponential moving average, 0-1)
-const RSSI_SMOOTHING = 0.3;
-
-// Minimum number of beacons needed for trilateration
-export const MIN_BEACONS_FOR_TRILATERATION = 3;
-
-// Maximum distance to consider a beacon relevant (meters)
-const MAX_BEACON_DISTANCE = 50;
-
-// Scan interval in milliseconds
-const SCAN_INTERVAL_MS = 1000;
-
-/**
- * Convert RSSI to estimated distance in meters using the log-distance path loss model.
- *
- * Formula: distance = 10 ^ ((txPower - rssi) / (10 * n))
- * where n is the path loss exponent
- */
-export function rssiToDistance(rssi: number, txPower: number = DEFAULT_TX_POWER): number {
-  if (rssi >= 0) return MAX_BEACON_DISTANCE; // invalid RSSI
-
-  const ratio = (txPower - rssi) / (10 * PATH_LOSS_EXPONENT);
-  const distance = Math.pow(10, ratio);
-
-  return Math.min(distance, MAX_BEACON_DISTANCE);
+export interface DiscoveredDevice {
+  /** Unique device identifier (platform-assigned UUID on iOS, MAC on Android) */
+  id: string;
+  /** Advertised local name, if any */
+  name: string | null;
+  /** Raw RSSI of the most recent reading */
+  rawRssi: number;
+  /** Exponentially smoothed RSSI */
+  smoothedRssi: number;
+  /** Estimated distance in meters (from path-loss model) */
+  estimatedDistance: number;
+  /** Timestamp of the most recent sighting (ms since epoch) */
+  lastSeen: number;
+  /** Number of times this device has been seen */
+  sightings: number;
+  /** Whether this looks like an iBeacon */
+  isBeacon: boolean;
+  /** Service UUIDs advertised, if any */
+  serviceUUIDs: string[];
 }
 
-/**
- * Apply exponential moving average smoothing to RSSI values.
- */
-export function smoothRssi(currentRssi: number, previousSmoothed: number | null): number {
-  if (previousSmoothed === null) return currentRssi;
-  return RSSI_SMOOTHING * currentRssi + (1 - RSSI_SMOOTHING) * previousSmoothed;
-}
+export type ScanCallback = (devices: DiscoveredDevice[]) => void;
 
-// Internal state for the scanner
-type ScanCallback = (beacons: DetectedBeacon[]) => void;
+// ─── Constants ───────────────────────────────────────────────────────
+
+/** RSSI smoothing factor (0–1, lower = smoother) */
+const RSSI_ALPHA = 0.3;
+
+/** Path-loss exponent for indoor BLE (free space = 2.0, indoor = 2.5–4.0) */
+const PATH_LOSS_N = 2.7;
+
+/** Reference RSSI at 1 meter */
+const REF_RSSI_1M = -59;
+
+/** Maximum distance to keep a device in the list (meters) */
+const MAX_DISTANCE = 80;
+
+/** Stale device timeout — remove devices not seen for this long (ms) */
+const STALE_TIMEOUT_MS = 30_000;
+
+/** How often to emit the device list to the callback (ms) */
+const EMIT_INTERVAL_MS = 1_000;
+
+/** Floor RSSI value for devices not seen (used in fingerprint comparison) */
+export const RSSI_FLOOR = -100;
+
+// ─── Internal state ─────────────────────────────────────────────────
 
 let isScanning = false;
 let scanCallback: ScanCallback | null = null;
-let knownBeacons: Beacon[] = [];
-let rssiHistory: Map<string, number> = new Map(); // hw_id -> smoothed RSSI
 let bleManager: any = null;
+let emitTimer: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Initialize the BLE scanner with known beacon data from Supabase.
- */
-export function initBleScanner(beacons: Beacon[]): void {
-  knownBeacons = beacons;
-  rssiHistory.clear();
+/** Live device map: deviceId → DiscoveredDevice */
+const deviceMap = new Map<string, DiscoveredDevice>();
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function rssiToDistance(rssi: number): number {
+  if (rssi >= 0) return MAX_DISTANCE;
+  const ratio = (REF_RSSI_1M - rssi) / (10 * PATH_LOSS_N);
+  return Math.min(Math.pow(10, ratio), MAX_DISTANCE);
 }
 
+function smoothRssi(newRssi: number, prevSmoothed: number | null): number {
+  if (prevSmoothed === null) return newRssi;
+  return RSSI_ALPHA * newRssi + (1 - RSSI_ALPHA) * prevSmoothed;
+}
+
+function pruneStaleDevices(): void {
+  const cutoff = Date.now() - STALE_TIMEOUT_MS;
+  for (const [id, dev] of deviceMap) {
+    if (dev.lastSeen < cutoff) {
+      deviceMap.delete(id);
+    }
+  }
+}
+
+function getDeviceList(): DiscoveredDevice[] {
+  pruneStaleDevices();
+  return Array.from(deviceMap.values())
+    .filter((d) => d.estimatedDistance <= MAX_DISTANCE)
+    .sort((a, b) => b.smoothedRssi - a.smoothedRssi); // strongest first
+}
+
+// ─── Public API ──────────────────────────────────────────────────────
+
 /**
- * Start scanning for BLE beacons.
- * Calls the callback with detected beacons on each scan cycle.
+ * Start continuous BLE scanning for ALL devices.
+ * Returns true if scanning started successfully.
  */
 export async function startScanning(callback: ScanCallback): Promise<boolean> {
   if (Platform.OS === 'web') {
@@ -84,19 +112,37 @@ export async function startScanning(callback: ScanCallback): Promise<boolean> {
 
   if (isScanning) {
     console.log('[BLE] Already scanning');
+    scanCallback = callback;
     return true;
   }
 
   try {
-    // Dynamic import to avoid web bundling issues
     const { BleManager } = require('react-native-ble-plx');
 
     if (!bleManager) {
       bleManager = new BleManager();
     }
 
-    // Check BLE state
-    const state = await bleManager.state();
+    // Wait for BLE to power on (up to 5 seconds)
+    let state = await bleManager.state();
+    if (state !== 'PoweredOn') {
+      console.log('[BLE] Waiting for Bluetooth to power on... current:', state);
+      await new Promise<void>((resolve) => {
+        const sub = bleManager.onStateChange((newState: string) => {
+          if (newState === 'PoweredOn') {
+            sub.remove();
+            resolve();
+          }
+        }, true);
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          sub.remove();
+          resolve();
+        }, 5000);
+      });
+      state = await bleManager.state();
+    }
+
     if (state !== 'PoweredOn') {
       console.warn('[BLE] Bluetooth is not powered on:', state);
       return false;
@@ -104,75 +150,53 @@ export async function startScanning(callback: ScanCallback): Promise<boolean> {
 
     scanCallback = callback;
     isScanning = true;
+    deviceMap.clear();
 
-    const detectedBeacons: Map<string, DetectedBeacon> = new Map();
-
-    // Start BLE scan
+    // Start scanning for ALL devices (null = no service UUID filter)
     bleManager.startDeviceScan(
-      null, // scan all service UUIDs
-      { allowDuplicates: true },
+      null,
+      { allowDuplicates: true, scanMode: 2 /* LowLatency on Android */ },
       (error: any, device: any) => {
         if (error) {
           console.warn('[BLE] Scan error:', error.message);
           return;
         }
+        if (!device) return;
 
-        if (!device || !device.manufacturerData) return;
+        const deviceId: string = device.id;
+        const rssi: number = device.rssi ?? -100;
+        const name: string | null = device.localName || device.name || null;
+        const serviceUUIDs: string[] = device.serviceUUIDs ?? [];
 
-        // Parse iBeacon advertisement data
-        const ibeacon = parseIBeaconData(device.manufacturerData);
-        if (!ibeacon) return;
+        // Check if this looks like an iBeacon (has manufacturer data with Apple prefix)
+        const isBeacon = !!device.manufacturerData;
 
-        // Check if this is a skyway beacon
-        if (ibeacon.uuid.toUpperCase() !== SKYWAY_BEACON_UUID) return;
+        const existing = deviceMap.get(deviceId);
+        const smoothed = smoothRssi(rssi, existing?.smoothedRssi ?? null);
+        const distance = rssiToDistance(smoothed);
 
-        const hwId = `${ibeacon.uuid}:${ibeacon.major}:${ibeacon.minor}`;
-        const rssi = device.rssi ?? -100;
-
-        // Smooth the RSSI
-        const previousSmoothed = rssiHistory.get(hwId) ?? null;
-        const smoothedRssi = smoothRssi(rssi, previousSmoothed);
-        rssiHistory.set(hwId, smoothedRssi);
-
-        // Find matching beacon in database
-        const matchedBeacon = knownBeacons.find(
-          (b) => b.major === ibeacon.major && b.minor === ibeacon.minor
-        );
-
-        const txPower = matchedBeacon?.tx_power ?? DEFAULT_TX_POWER;
-        const distance = rssiToDistance(smoothedRssi, txPower);
-
-        if (distance <= MAX_BEACON_DISTANCE) {
-          detectedBeacons.set(hwId, {
-            hw_id: hwId,
-            rssi: smoothedRssi,
-            distance,
-            beacon: matchedBeacon,
-          });
-        }
+        deviceMap.set(deviceId, {
+          id: deviceId,
+          name: name || existing?.name || null,
+          rawRssi: rssi,
+          smoothedRssi: smoothed,
+          estimatedDistance: distance,
+          lastSeen: Date.now(),
+          sightings: (existing?.sightings ?? 0) + 1,
+          isBeacon,
+          serviceUUIDs: serviceUUIDs.length > 0 ? serviceUUIDs : (existing?.serviceUUIDs ?? []),
+        });
       }
     );
 
-    // Periodically emit the detected beacons
-    const emitInterval = setInterval(() => {
-      if (!isScanning) {
-        clearInterval(emitInterval);
-        return;
-      }
+    // Periodically emit the device list
+    emitTimer = setInterval(() => {
+      if (!isScanning || !scanCallback) return;
+      const devices = getDeviceList();
+      scanCallback(devices);
+    }, EMIT_INTERVAL_MS);
 
-      const beaconList = Array.from(detectedBeacons.values())
-        .filter((b) => b.distance <= MAX_BEACON_DISTANCE)
-        .sort((a, b) => a.distance - b.distance);
-
-      if (scanCallback) {
-        scanCallback(beaconList);
-      }
-
-      // Remove stale beacons (not seen in last 5 seconds)
-      // For simplicity, we keep all detected beacons until scan restarts
-    }, SCAN_INTERVAL_MS);
-
-    console.log('[BLE] Scanning started');
+    console.log('[BLE] Passive scanning started — discovering all devices');
     return true;
   } catch (err) {
     console.warn('[BLE] Failed to start scanning:', err);
@@ -182,13 +206,18 @@ export async function startScanning(callback: ScanCallback): Promise<boolean> {
 }
 
 /**
- * Stop scanning for BLE beacons.
+ * Stop BLE scanning.
  */
 export function stopScanning(): void {
   if (!isScanning) return;
 
   isScanning = false;
   scanCallback = null;
+
+  if (emitTimer) {
+    clearInterval(emitTimer);
+    emitTimer = null;
+  }
 
   if (bleManager && Platform.OS !== 'web') {
     try {
@@ -202,79 +231,39 @@ export function stopScanning(): void {
 }
 
 /**
- * Check if BLE scanning is currently active.
+ * Check if BLE scanning is active.
  */
 export function isBleScanning(): boolean {
   return isScanning;
 }
 
 /**
- * Parse iBeacon data from manufacturer-specific data.
- * iBeacon format: Company ID (2 bytes) + Type (1 byte) + Length (1 byte) +
- *                 UUID (16 bytes) + Major (2 bytes) + Minor (2 bytes) + TX Power (1 byte)
+ * Get the current snapshot of all discovered devices.
  */
-function parseIBeaconData(
-  manufacturerData: string
-): { uuid: string; major: number; minor: number; txPower: number } | null {
-  try {
-    // Decode base64 manufacturer data
-    const bytes = base64ToBytes(manufacturerData);
-    if (!bytes || bytes.length < 25) return null;
-
-    // Check for iBeacon prefix (Apple company ID 0x004C, type 0x02, length 0x15)
-    const companyId = (bytes[1] << 8) | bytes[0];
-    if (companyId !== 0x004c) return null;
-    if (bytes[2] !== 0x02 || bytes[3] !== 0x15) return null;
-
-    // Extract UUID (bytes 4-19)
-    const uuidParts = [];
-    for (let i = 4; i < 20; i++) {
-      uuidParts.push(bytes[i].toString(16).padStart(2, '0'));
-    }
-    const uuid = [
-      uuidParts.slice(0, 4).join(''),
-      uuidParts.slice(4, 6).join(''),
-      uuidParts.slice(6, 8).join(''),
-      uuidParts.slice(8, 10).join(''),
-      uuidParts.slice(10, 16).join(''),
-    ]
-      .join('-')
-      .toUpperCase();
-
-    // Extract Major (bytes 20-21, big-endian)
-    const major = (bytes[20] << 8) | bytes[21];
-
-    // Extract Minor (bytes 22-23, big-endian)
-    const minor = (bytes[22] << 8) | bytes[23];
-
-    // Extract TX Power (byte 24, signed)
-    const txPower = bytes[24] > 127 ? bytes[24] - 256 : bytes[24];
-
-    return { uuid, major, minor, txPower };
-  } catch {
-    return null;
-  }
+export function getDiscoveredDevices(): DiscoveredDevice[] {
+  return getDeviceList();
 }
 
 /**
- * Decode base64 string to byte array.
+ * Get the current BLE "fingerprint" — a map of deviceId → smoothedRssi
+ * for all currently visible devices. This is used for fingerprint matching.
  */
-function base64ToBytes(base64: string): Uint8Array | null {
-  try {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+export function getCurrentFingerprint(): Map<string, number> {
+  pruneStaleDevices();
+  const fp = new Map<string, number>();
+  for (const [id, dev] of deviceMap) {
+    // Only include devices seen in the last 10 seconds for a fresh fingerprint
+    if (Date.now() - dev.lastSeen < 10_000) {
+      fp.set(id, dev.smoothedRssi);
     }
-    return bytes;
-  } catch {
-    return null;
   }
+  return fp;
 }
 
 /**
- * Get the number of known beacons loaded.
+ * Get the count of currently visible devices.
  */
-export function getKnownBeaconCount(): number {
-  return knownBeacons.length;
+export function getDeviceCount(): number {
+  pruneStaleDevices();
+  return deviceMap.size;
 }

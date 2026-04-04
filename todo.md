@@ -59,6 +59,14 @@
 - [x] Fix web preview/simulator rendering issues - removed ScreenContainer for edge-to-edge map, fixed layout
 - [x] Fix iPhone native map - replaced react-native-maps with @maplibre/maplibre-react-native using same vector tile style
 - [x] Ensure both native and web use the same MapLibre-based map rendering - both use identical tile proxy and style layers
-- [ ] Set up EAS Build configuration (eas.json) for development builds
-- [ ] Guide user through creating a dev build to preview on phone with native MapLibre
+- [x] Set up EAS Build configuration (eas.json) for development builds
+- [x] Guide user through creating a dev build to preview on phone with native MapLibre
 - [x] Set up EAS Build with development build profile for native MapLibre preview on phone
+- [x] Set default Metro dev server port to 8083 and create .env with defaults
+- [x] Research BLE fingerprinting indoor positioning techniques (WKNN algorithm, RSSI smoothing, crowdsourced collection)
+- [x] Implement constant BLE scanning with fingerprint collection (scans ALL BLE devices, not just iBeacons)
+- [x] Build fingerprint database (AsyncStorage) mapping BLE signatures to GPS locations
+- [x] Build fingerprint matching engine (WKNN with signal distance) for indoor location estimation
+- [x] Integrate BLE-estimated position into navigation system (fuses with GPS when accuracy is poor)
+- [x] Build "Show Details" BLE panel UI showing discovered devices and signal strengths
+- [x] Display BLE-estimated position on the map (via position fusion in navigation provider)

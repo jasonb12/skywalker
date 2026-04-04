@@ -8,18 +8,26 @@ import {
 } from './navigation-store';
 import { fetchBuildings, fetchNodes, fetchEdges, fetchBusinesses } from './skyway-data';
 import { loadSavedPaths, loadSettings } from './storage';
-import { supabase } from './supabase';
-import { initBleScanner, startScanning, stopScanning } from './ble-scanner';
-import { PositionFusionEngine } from './position-fusion';
-import type { UserPosition, Beacon } from './types';
+import {
+  startScanning,
+  stopScanning,
+  getCurrentFingerprint,
+  type DiscoveredDevice,
+} from './ble-scanner';
+import {
+  initFingerprintStore,
+  captureFingerprint,
+  estimatePosition,
+  getFingerprintCount,
+} from './ble-fingerprint-store';
+import type { UserPosition } from './types';
 
 export function NavigationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(navigationReducer, initialState);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
-  const lastGpsTime = useRef<number>(0);
-  const deadReckonPos = useRef<{ lat: number; lng: number } | null>(null);
-  const fusionEngine = useRef(new PositionFusionEngine());
+  const lastGpsPosition = useRef<{ lat: number; lng: number; accuracy: number; time: number } | null>(null);
   const bleEnabled = useRef(true);
+  const latestDevices = useRef<DiscoveredDevice[]>([]);
 
   // Load data on mount
   useEffect(() => {
@@ -46,20 +54,12 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       if (settings.distanceUnit !== 'feet') dispatch({ type: 'SET_DISTANCE_UNIT', unit: settings.distanceUnit });
       bleEnabled.current = settings.bleEnabled !== false;
 
-      // Load beacons from Supabase and initialize BLE scanner
-      try {
-        const { data: beacons } = await supabase.from('beacons').select('*');
-        if (beacons && beacons.length > 0) {
-          initBleScanner(beacons as Beacon[]);
-          dispatch({ type: 'SET_BLE_STATUS', beaconCount: beacons.length, scanning: false });
-        }
-      } catch (e) {
-        console.warn('Failed to load beacons:', e);
-      }
+      // Initialize fingerprint store
+      await initFingerprintStore();
     })();
   }, []);
 
-  // Location tracking + BLE scanning + position fusion
+  // Location tracking + BLE scanning + fingerprint positioning
   useEffect(() => {
     if (Platform.OS === 'web') return;
 
@@ -83,8 +83,6 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
               (loc) => {
                 if (!mounted) return;
 
-                lastGpsTime.current = Date.now();
-
                 const gpsPos: UserPosition = {
                   latitude: loc.coords.latitude,
                   longitude: loc.coords.longitude,
@@ -93,15 +91,54 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
                   source: 'gps',
                 };
 
-                deadReckonPos.current = { lat: gpsPos.latitude, lng: gpsPos.longitude };
+                lastGpsPosition.current = {
+                  lat: gpsPos.latitude,
+                  lng: gpsPos.longitude,
+                  accuracy: gpsPos.accuracy,
+                  time: Date.now(),
+                };
 
-                // Feed GPS into fusion engine
-                fusionEngine.current.updateGps(gpsPos);
+                // Auto-capture BLE fingerprint when GPS is good
+                const fp = getCurrentFingerprint();
+                if (fp.size >= 3 && gpsPos.accuracy < 15) {
+                  captureFingerprint(
+                    gpsPos.latitude,
+                    gpsPos.longitude,
+                    gpsPos.accuracy,
+                    fp
+                  );
+                }
 
-                // Get fused position
-                const fused = fusionEngine.current.getFusedPosition();
-                if (fused) {
-                  dispatch({ type: 'SET_POSITION', position: fused });
+                // Use GPS position directly (or fuse with BLE if available)
+                const bleEstimate = estimatePosition(fp);
+                if (bleEstimate && gpsPos.accuracy > 20) {
+                  // GPS is poor — prefer BLE fingerprint position
+                  const fusedPos: UserPosition = {
+                    latitude: bleEstimate.latitude,
+                    longitude: bleEstimate.longitude,
+                    accuracy: bleEstimate.accuracy,
+                    heading: gpsPos.heading,
+                    source: 'ble',
+                    bleBeaconsInRange: latestDevices.current.length,
+                  };
+                  dispatch({ type: 'SET_POSITION', position: fusedPos });
+                } else if (bleEstimate && gpsPos.accuracy > 10) {
+                  // GPS is mediocre — fuse GPS + BLE
+                  const gpsWeight = 10 / gpsPos.accuracy;
+                  const bleWeight = bleEstimate.matchCount / (bleEstimate.avgSignalDistance + 1);
+                  const totalWeight = gpsWeight + bleWeight;
+                  const fusedPos: UserPosition = {
+                    latitude: (gpsPos.latitude * gpsWeight + bleEstimate.latitude * bleWeight) / totalWeight,
+                    longitude: (gpsPos.longitude * gpsWeight + bleEstimate.longitude * bleWeight) / totalWeight,
+                    accuracy: Math.min(gpsPos.accuracy, bleEstimate.accuracy),
+                    heading: gpsPos.heading,
+                    source: 'fused',
+                    bleBeaconsInRange: latestDevices.current.length,
+                  };
+                  dispatch({ type: 'SET_POSITION', position: fusedPos });
+                } else {
+                  // GPS is good — use it directly
+                  dispatch({ type: 'SET_POSITION', position: gpsPos });
                 }
               }
             );
@@ -114,29 +151,49 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       // === BLE Scanning ===
       if (bleEnabled.current) {
         try {
-          const started = await startScanning((detectedBeacons) => {
+          const started = await startScanning((devices: DiscoveredDevice[]) => {
             if (!mounted) return;
 
-            // Feed BLE data into fusion engine
-            fusionEngine.current.updateBle(detectedBeacons);
+            latestDevices.current = devices;
 
-            // Get fused position
-            const fused = fusionEngine.current.getFusedPosition();
-            if (fused) {
-              dispatch({ type: 'SET_POSITION', position: fused });
-            }
-
-            // Update BLE status
-            const status = fusionEngine.current.getStatus();
+            // Update BLE status in state
             dispatch({
               type: 'SET_BLE_STATUS',
-              beaconCount: detectedBeacons.length,
+              deviceCount: devices.length,
               scanning: true,
+              devices,
+              fingerprintCount: getFingerprintCount(),
             });
+
+            // If GPS hasn't updated in a while, try BLE-only positioning
+            const gps = lastGpsPosition.current;
+            const gpsStale = !gps || (Date.now() - gps.time > 10_000);
+
+            if (gpsStale) {
+              const fp = getCurrentFingerprint();
+              const bleEstimate = estimatePosition(fp);
+              if (bleEstimate) {
+                const blePos: UserPosition = {
+                  latitude: bleEstimate.latitude,
+                  longitude: bleEstimate.longitude,
+                  accuracy: bleEstimate.accuracy,
+                  heading: null,
+                  source: 'ble',
+                  bleBeaconsInRange: devices.length,
+                };
+                dispatch({ type: 'SET_POSITION', position: blePos });
+              }
+            }
           });
 
           if (started) {
-            dispatch({ type: 'SET_BLE_STATUS', beaconCount: 0, scanning: true });
+            dispatch({
+              type: 'SET_BLE_STATUS',
+              deviceCount: 0,
+              scanning: true,
+              devices: [],
+              fingerprintCount: getFingerprintCount(),
+            });
           }
         } catch (e) {
           console.warn('BLE scanning error:', e);
@@ -144,48 +201,12 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       }
     })();
 
-    // Dead reckoning fallback: if GPS and BLE haven't updated in 10s
-    const drInterval = setInterval(() => {
-      if (!mounted) return;
-      const elapsed = Date.now() - lastGpsTime.current;
-      const status = fusionEngine.current.getStatus();
-
-      if (elapsed > 10000 && !status.bleAvailable && deadReckonPos.current) {
-        const drPos: UserPosition = {
-          latitude: deadReckonPos.current.lat,
-          longitude: deadReckonPos.current.lng,
-          accuracy: 50,
-          heading: null,
-          source: 'dead-reckoning',
-        };
-
-        fusionEngine.current.updateDeadReckoning(drPos);
-        const fused = fusionEngine.current.getFusedPosition();
-        if (fused) {
-          dispatch({ type: 'SET_POSITION', position: fused });
-        }
-      }
-    }, 5000);
-
-    // Periodic fusion status update
-    const statusInterval = setInterval(() => {
-      if (!mounted) return;
-      const status = fusionEngine.current.getStatus();
-      dispatch({
-        type: 'SET_BLE_STATUS',
-        beaconCount: status.bleBeaconCount,
-        scanning: status.bleAvailable,
-      });
-    }, 3000);
-
     return () => {
       mounted = false;
       if (locationSubscription.current) {
         locationSubscription.current.remove();
       }
       stopScanning();
-      clearInterval(drInterval);
-      clearInterval(statusInterval);
     };
   }, []);
 

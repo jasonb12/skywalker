@@ -1,59 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { rssiToDistance, smoothRssi } from '../lib/ble-scanner';
 import { trilateratePosition, lngToMeters, latToMeters, metersToLat, metersToLng } from '../lib/trilateration';
 import { PositionFusionEngine } from '../lib/position-fusion';
 import type { DetectedBeacon, UserPosition, Beacon } from '../lib/types';
 import { navigationReducer, initialState } from '../lib/navigation-store';
-
-// ============ BLE Scanner Tests ============
-
-describe('rssiToDistance', () => {
-  it('returns small distance for strong RSSI', () => {
-    const dist = rssiToDistance(-50, -59);
-    expect(dist).toBeLessThan(5);
-    expect(dist).toBeGreaterThan(0);
-  });
-
-  it('returns larger distance for weak RSSI', () => {
-    const dist = rssiToDistance(-80, -59);
-    expect(dist).toBeGreaterThan(5);
-  });
-
-  it('returns max distance for very weak RSSI', () => {
-    const dist = rssiToDistance(-120, -59);
-    expect(dist).toBe(50); // MAX_BEACON_DISTANCE
-  });
-
-  it('returns max distance for invalid positive RSSI', () => {
-    const dist = rssiToDistance(10, -59);
-    expect(dist).toBe(50);
-  });
-
-  it('returns ~1m when RSSI equals txPower', () => {
-    const dist = rssiToDistance(-59, -59);
-    expect(dist).toBeCloseTo(1, 0);
-  });
-});
-
-describe('smoothRssi', () => {
-  it('returns current RSSI when no previous value', () => {
-    expect(smoothRssi(-60, null)).toBe(-60);
-  });
-
-  it('applies exponential moving average', () => {
-    const smoothed = smoothRssi(-70, -60);
-    // 0.3 * -70 + 0.7 * -60 = -21 + -42 = -63
-    expect(smoothed).toBeCloseTo(-63, 1);
-  });
-
-  it('smooths toward current value over multiple calls', () => {
-    let val = smoothRssi(-80, null); // -80
-    val = smoothRssi(-60, val); // should move toward -60
-    val = smoothRssi(-60, val);
-    val = smoothRssi(-60, val);
-    expect(val).toBeGreaterThan(-70); // getting closer to -60
-  });
-});
 
 // ============ Trilateration Tests ============
 
@@ -280,10 +229,13 @@ describe('navigationReducer BLE actions', () => {
   it('handles SET_BLE_STATUS', () => {
     const state = navigationReducer(initialState, {
       type: 'SET_BLE_STATUS',
-      beaconCount: 5,
+      deviceCount: 5,
       scanning: true,
+      devices: [],
+      fingerprintCount: 10,
     });
     expect(state.bleScanning).toBe(true);
-    expect(state.bleBeaconsInRange).toBe(5);
+    expect(state.bleDevicesInRange).toBe(5);
+    expect(state.bleFingerprintCount).toBe(10);
   });
 });
