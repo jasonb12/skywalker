@@ -1,0 +1,54 @@
+SKYWAY.RUN MAP STYLE ANALYSIS
+==============================
+
+From the JS bundle, the footway layers use these key patterns:
+
+LAYER 1: Ground-level footways (layer/level != "1")
+- source-layer: "footway"
+- filter: ["all", ["!=", ["coalesce", ["get","layer"], ["get","level"]], "1"], ["has","color"]]
+- line-cap: "butt"
+- line-color: ["get","color"]  (uses the color property from the data)
+- line-width: stops [[14,1],[17,6]], base 2
+- line-dasharray: [0.4, 0.6]  <-- DASHED for ground level!
+
+LAYER 2: Skyway-level footways (layer/level == "1")
+- source-layer: "footway"
+- filter: ["all", ["==", ["coalesce", ["get","layer"], ["get","level"]], "1"], ["has","color"]]
+- line-cap: "round"
+- line-color: ["get","color"]
+- line-width: stops [[14,1],[15,6],[18,9]], base 2
+- SOLID line (no dash array) <-- SOLID for skyway level!
+
+LAYER 3: Closed paths overlay
+- source-layer: "footway"
+- line-color: white
+- line-pattern: "Closed"
+- Only visible when feature-state opening_status == "closed"
+
+LAYER 4: Simple footway (zoomed out, level 1)
+- source-layer: "footway-simple"
+- maxzoom: 16.5
+- filter: level == "1"
+- line-cap: "round"
+- line-color: ["get","color"]
+- line-width: 9
+- SOLID
+
+LAYER 5: Simple footway (zoomed out, ground level)
+- source-layer: "footway-simple"
+- maxzoom: 16.5
+- filter: level != "1"
+- line-cap: "butt"
+- line-color: ["get","color"]
+- line-width: 9
+- line-dasharray: [0.9, 0.9]  <-- DASHED
+
+KEY INSIGHT:
+- level/layer == "1" means SKYWAY LEVEL (elevated) -> SOLID lines
+- level/layer != "1" means GROUND LEVEL -> DASHED lines
+- The "dots" I saw are actually the dashed pattern!
+- The color comes from the "color" property on each feature
+- All features must have "color" property to be shown
+
+The "footway-simple" layer is used at lower zoom levels (0-16.5)
+The "footway" layer is used at higher zoom levels (16.5+)

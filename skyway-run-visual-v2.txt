@@ -1,0 +1,37 @@
+SKYWAY.RUN VISUAL ANALYSIS (v2)
+================================
+
+KEY OBSERVATIONS:
+1. Paths are rendered as THICK colored lines (about 6-8px wide)
+2. Each path has CIRCULAR DOTS along it (like a dotted/beaded line pattern)
+3. The dots are spaced regularly along the path
+4. Some dots have X marks through them (indicating closed/restricted access?)
+5. Colors represent different "regions" or building owners
+6. The gray (#666666 and #333333) paths are ALSO skyway paths - they're just in a different region
+7. Building labels are in ALL CAPS, positioned near the building
+8. The map background uses a light gray street map (similar to CartoDB Positron)
+9. Paths follow the actual building corridors and bridges, not straight lines between buildings
+10. The path rendering is the KEY differentiator - thick colored lines with dots
+
+COLORS USED:
+- Red (#de1215) - Target Center area, west side
+- Blue (#2e3092) - IDS Center, Capella Tower area
+- Green (#008540) - Gaviidae Common, Nicollet Mall area
+- Purple (#7f3f98) - US Bank Stadium, east side
+- Brown (#894406) - Marquette Plaza, 330 South Second area
+- Pink/Magenta (#c1105a) - Foshay Tower, AT&T Tower area
+- Teal (#177eab) - IDS Center/RSM Plaza area
+- Dark Red (#74133f) - State Theatre, Orpheum area
+- Dark Gray (#666666) - Various connecting paths
+- Darker Gray (#333333) - Various connecting paths
+
+RENDERING STYLE:
+- Thick lines (6-8px) with rounded caps
+- Circular dots every ~30-50 meters along the path
+- Dots are filled circles with the path color
+- Some dots have X patterns (closed hours?)
+- Building labels in bold uppercase, white background/halo
+- Street names visible on the base map
+- No building polygons shown, just labels
+
+THIS IS WHAT WE NEED TO REPLICATE.

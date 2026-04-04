@@ -1,0 +1,26 @@
+DETAILED COMPARISON: Our Map vs Skyway.run
+===========================================
+
+CRITICAL DIFFERENCES:
+
+1. LINE THICKNESS: Skyway.run uses VERY thick lines (about 12-15px equivalent). Our lines are 6px at zoom 15 - need to at least double.
+
+2. LINE STYLE: Skyway.run uses a distinctive "X" pattern on the lines, not simple dashes. The lines have circular nodes/dots at intersections and X marks along the path. This is a custom MapLibre style, not standard Leaflet line styles.
+
+3. COVERAGE: Skyway.run shows paths extending much further:
+   - East to US Bank Stadium (far right)
+   - West to Target Field (far left)  
+   - South to Loring Parking Ramp
+   - North to The Churchill
+   Our map is missing the eastern paths (US Bank Stadium area), some western paths, and some southern paths.
+
+4. COLORS: Skyway.run has very vivid, saturated colors. Our colors are similar but less prominent because lines are thin.
+
+5. BUILDING LABELS: Skyway.run shows many more building labels, positioned more carefully.
+
+6. The paths in skyway.run follow the EXACT building outlines and streets. Our paths are in the right general area but may be slightly offset.
+
+ACTION PLAN:
+- Increase line weight to 12+ at zoom 15
+- Need to download MORE tiles to get the eastern (US Bank Stadium) and western (Target Field) paths
+- The X pattern is unique to MapLibre vector rendering - in Leaflet we can approximate with thicker dashed lines or use a custom pattern

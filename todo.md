@@ -51,3 +51,7 @@
 - [x] Render skyway paths as GeoJSON overlays on the real map (1207 segments)
 - [x] Match skyway.run visual style (10 colors, zoom-dependent labels, 154 buildings)
 - [x] Ensure map works on both web preview and native iOS
+- [x] Diagnose incorrect path coordinates from vector tile extraction
+- [x] Fix MVT-to-GPS coordinate conversion - switched to serving skyway.run MVT tiles directly via Express proxy
+- [x] Replaced static skyway-data.json with live MapLibre vector tile rendering from skyway.run data
+- [x] Verify map paths match skyway.run rendering - now using identical tile data and matching layer styles

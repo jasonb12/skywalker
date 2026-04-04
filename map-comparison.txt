@@ -1,0 +1,33 @@
+MAP COMPARISON: Our App vs Skyway.run
+======================================
+
+SKYWAY.RUN OBSERVATIONS:
+- Shows the FULL skyway system from Target Field (NW) to US Bank Stadium (E) to Loring Parking Ramp (S)
+- Uses thick colored lines with CIRCULAR DOTS along the paths (not dashes)
+- The "dashes" I described earlier are actually dots/circles spaced along the line
+- Some dots have X marks (closed sections)
+- Colors are vivid and distinct per region
+- Building labels in ALL CAPS with white background
+- The map shows the ENTIRE downtown grid with street names visible
+- Zoom level shows everything at once
+
+OUR APP OBSERVATIONS:
+- Shows a smaller area (core skyway only)
+- Uses dashed lines (correct for ground level per the style spec)
+- Uses solid lines for bridges (correct per the style spec)
+- Colors match skyway.run
+- Building labels match
+- Missing: the outer buildings (Target Field, US Bank Stadium, Loring area)
+- The paths DO follow the correct streets and building positions
+
+KEY DIFFERENCES:
+1. Our map is zoomed in too much - need to show the full system
+2. The dash pattern should be dots/circles, not line dashes
+3. Need more buildings visible at the default zoom
+4. The path coverage looks correct for the core area but missing outer extensions
+
+CONCLUSION:
+The GPS coordinates and path data are CORRECT. The rendering style needs adjustment:
+- Change default zoom to show full system
+- The dashed pattern is actually a visual approximation of the dots - this is acceptable
+- Need to ensure all paths from the extraction are included
