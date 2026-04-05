@@ -11,91 +11,60 @@ vi.mock('expo-constants', () => ({
   },
 }));
 
-describe('Map Config - Supabase Edge Function URLs', () => {
+describe('Map Config - Self-hosted PMTiles', () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
-  it('getTileUrl returns Supabase Edge Function tile URL', async () => {
-    const { getTileUrl } = await import('../lib/map-config');
-    const url = getTileUrl();
+  it('getPmtilesUrl returns Supabase Storage URL for PMTiles archive', async () => {
+    const { getPmtilesUrl } = await import('../lib/map-config');
+    const url = getPmtilesUrl();
     expect(url).toBe(
-      'https://oocciycvadlcculiqpsz.supabase.co/functions/v1/skyway-tile/{z}/{x}/{y}.mvt'
+      'https://oocciycvadlcculiqpsz.supabase.co/storage/v1/object/public/map-tiles/skyway.pmtiles'
     );
-    expect(url).toContain('/functions/v1/skyway-tile/');
-    expect(url).toContain('{z}/{x}/{y}.mvt');
+    expect(url).toContain('/storage/v1/object/public/map-tiles/');
+    expect(url).toContain('.pmtiles');
   });
 
-  it('getFontGlyphsUrl returns Supabase Edge Function font URL', async () => {
+  it('getFontGlyphsUrl returns MapLibre demo font CDN URL', async () => {
     const { getFontGlyphsUrl } = await import('../lib/map-config');
     const url = getFontGlyphsUrl();
     expect(url).toBe(
-      'https://oocciycvadlcculiqpsz.supabase.co/functions/v1/skyway-fonts/{fontstack}/{range}.pbf'
+      'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
     );
-    expect(url).toContain('/functions/v1/skyway-fonts/');
     expect(url).toContain('{fontstack}/{range}.pbf');
   });
 
-  it('getMapHtmlUrl returns base URL without params', async () => {
-    const { getMapHtmlUrl } = await import('../lib/map-config');
-    const url = getMapHtmlUrl();
-    expect(url).toBe(
-      'https://oocciycvadlcculiqpsz.supabase.co/functions/v1/skyway-map'
-    );
+  it('getTileUrl (legacy) returns same as getPmtilesUrl', async () => {
+    const { getTileUrl, getPmtilesUrl } = await import('../lib/map-config');
+    expect(getTileUrl()).toBe(getPmtilesUrl());
   });
 
-  it('getMapHtmlUrl appends query params correctly', async () => {
-    const { getMapHtmlUrl } = await import('../lib/map-config');
-    const url = getMapHtmlUrl({ isDark: 'true', userLng: '-93.270', userLat: '44.976' });
-    expect(url).toContain('/functions/v1/skyway-map?');
-    expect(url).toContain('isDark=true');
-    expect(url).toContain('userLng=-93.270');
-    expect(url).toContain('userLat=44.976');
-  });
-
-  it('getMapHtmlUrl handles empty params object', async () => {
-    const { getMapHtmlUrl } = await import('../lib/map-config');
-    const url = getMapHtmlUrl({});
-    expect(url).toBe(
-      'https://oocciycvadlcculiqpsz.supabase.co/functions/v1/skyway-map'
-    );
-    expect(url).not.toContain('?');
-  });
-
-  it('all URLs use the same Supabase project', async () => {
-    const { getTileUrl, getFontGlyphsUrl, getMapHtmlUrl } = await import('../lib/map-config');
-    const projectUrl = 'https://oocciycvadlcculiqpsz.supabase.co';
-    expect(getTileUrl().startsWith(projectUrl)).toBe(true);
-    expect(getFontGlyphsUrl().startsWith(projectUrl)).toBe(true);
-    expect(getMapHtmlUrl().startsWith(projectUrl)).toBe(true);
+  it('URLs do not reference skyway.run', async () => {
+    const { getPmtilesUrl, getFontGlyphsUrl } = await import('../lib/map-config');
+    const urls = [getPmtilesUrl(), getFontGlyphsUrl()];
+    for (const url of urls) {
+      expect(url).not.toContain('skyway.run');
+    }
   });
 
   it('URLs do not reference Express server paths', async () => {
-    const { getTileUrl, getFontGlyphsUrl, getMapHtmlUrl } = await import('../lib/map-config');
-    const urls = [getTileUrl(), getFontGlyphsUrl(), getMapHtmlUrl()];
+    const { getPmtilesUrl, getFontGlyphsUrl } = await import('../lib/map-config');
+    const urls = [getPmtilesUrl(), getFontGlyphsUrl()];
     for (const url of urls) {
       expect(url).not.toContain('/api/skyway/');
       expect(url).not.toContain('localhost');
       expect(url).not.toContain(':3000');
     }
   });
-});
 
-describe('Edge Function URLs - Format Validation', () => {
-  it('tile URL has correct MVT extension pattern', async () => {
-    const { getTileUrl } = await import('../lib/map-config');
-    const url = getTileUrl();
-    expect(url).toMatch(/\.mvt$/);
+  it('PMTiles URL uses HTTPS', async () => {
+    const { getPmtilesUrl } = await import('../lib/map-config');
+    expect(getPmtilesUrl()).toMatch(/^https:\/\//);
   });
 
-  it('font URL has correct PBF extension pattern', async () => {
+  it('font URL uses HTTPS', async () => {
     const { getFontGlyphsUrl } = await import('../lib/map-config');
-    const url = getFontGlyphsUrl();
-    expect(url).toMatch(/\.pbf$/);
-  });
-
-  it('map URL uses HTTPS', async () => {
-    const { getMapHtmlUrl } = await import('../lib/map-config');
-    expect(getMapHtmlUrl()).toMatch(/^https:\/\//);
+    expect(getFontGlyphsUrl()).toMatch(/^https:\/\//);
   });
 });

@@ -67,132 +67,38 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // === Skyway tile proxy ===
-  // Serve pre-downloaded MVT tiles from public/tiles/
-  // Falls back to proxying from skyway.run if tile not found locally
-  app.get("/api/skyway/tile/:z/:x/:y.mvt", async (req, res) => {
-    const { z, x, y } = req.params;
-    const localPath = path.join(projectRoot, "public", "tiles", z, x, `${y}.mvt`);
-
-    // Try local file first
-    if (fs.existsSync(localPath)) {
-      res.setHeader("Content-Type", "application/x-protobuf");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.sendFile(localPath);
-      return;
-    }
-
-    // Proxy from skyway.run
-    try {
-      const upstream = `https://skyway.run/api/tile/${z}/${x}/${y}.mvt`;
-      const response = await fetch(upstream);
-      if (!response.ok) {
-        res.status(response.status).send("Tile not found");
-        return;
+  // Serve extracted MVT tiles from public/skyway-tiles/{z}/{x}/{y}.mvt
+  app.use("/skyway-tiles", express.static(path.join(projectRoot, "public/skyway-tiles"), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".mvt")) {
+        res.setHeader("Content-Type", "application/vnd.mapbox-vector-tile");
+        res.setHeader("Cache-Control", "public, max-age=604800"); // 7 days
       }
-      const buffer = Buffer.from(await response.arrayBuffer());
-      
-      // Cache locally for future requests
-      const tileDir = path.join(projectRoot, "public", "tiles", z, x);
-      fs.mkdirSync(tileDir, { recursive: true });
-      fs.writeFileSync(path.join(tileDir, `${y}.mvt`), buffer);
+    },
+  }));
 
-      res.setHeader("Content-Type", "application/x-protobuf");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      res.send(buffer);
-    } catch (err) {
-      console.error("Tile proxy error:", err);
-      res.status(502).send("Tile proxy error");
-    }
-  });
-
-  // Serve tile.json metadata
-  app.get("/api/skyway/tile.json", (req, res) => {
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-    const host = req.headers.host;
-    const baseUrl = `${protocol}://${host}`;
-
-    res.json({
-      tilejson: "3.0.0",
-      scheme: "xyz",
-      tiles: [`${baseUrl}/api/skyway/tile/{z}/{x}/{y}.mvt`],
-      vector_layers: [
-        { id: "building", fields: { building: "String", opening_hours: "String", osmid: "String", region: "String", skyway_hours: "String" }, minzoom: 14, maxzoom: 15 },
-        { id: "building-names", fields: { address: "String", amenity: "String", branch: "String", brand: "String", building: "String", kind: "String", leisure: "String", level: "String", name: "String", office: "String", opening_hours: "String", osmid: "String", region: "String", shop: "String", skyway_hours: "String", tourism: "String", website: "String" }, minzoom: 14, maxzoom: 15 },
-        { id: "poi", fields: { address: "String", amenity: "String", branch: "String", brand: "String", craft: "String", cuisine: "String", inside: "String", kind: "String", leisure: "String", level: "String", name: "String", office: "String", opening_hours: "String", osmid: "String", region: "String", shop: "String", tourism: "String", website: "String" }, minzoom: 15, maxzoom: 15 },
-        { id: "footway", fields: { bridge: "String", class: "String", color: "String", layer: "String", level: "String", name: "String", osmid: "String", owner: "String", region: "String", tunnel: "String" }, minzoom: 14, maxzoom: 15 },
-        { id: "footway-simple", fields: { bridge: "String", class: "String", color: "String", layer: "String", level: "String", owner: "String", region: "String", route: "String", tunnel: "String" }, minzoom: 14, maxzoom: 15 },
-        { id: "roadway", fields: { class: "String", name: "String", osmid: "String", region: "String" }, minzoom: 14, maxzoom: 15 },
-        { id: "building-simple", fields: { color: "String", dot: "String", name: "String", region: "String", route: "String", type: "String" }, minzoom: 14, maxzoom: 15 },
-      ],
-      description: "Skyway buildings and footways connecting them",
-      name: "Skyway app tilemaker",
-      bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446],
-      center: [-93.265208, 44.9706345, 14],
-      minzoom: 14,
-      maxzoom: 15,
+  // Serve GeoJSON files for each skyway layer (fallback for environments where MVT web workers fail)
+  const geojsonLayers = ['footway', 'footway-simple', 'building', 'building-names', 'building-simple', 'roadway', 'poi'];
+  for (const layer of geojsonLayers) {
+    app.get(`/api/skyway/geojson/${layer}`, (_req, res) => {
+      const filePath = path.join(projectRoot, `public/skyway-${layer}.geojson`);
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "application/geo+json");
+        res.setHeader("Cache-Control", "public, max-age=604800");
+        res.sendFile(filePath);
+      } else {
+        res.status(404).json({ error: `Layer ${layer} not found` });
+      }
     });
-  });
+  }
 
-  // === Font/glyph proxy ===
-  // Serve pre-downloaded font PBF files from public/fonts/
-  app.get("/api/skyway/fonts/:fontstack/:range.pbf", async (req, res) => {
-    const { fontstack, range } = req.params;
-    const localPath = path.join(projectRoot, "public", "fonts", fontstack, `${range}.pbf`);
-
-    if (fs.existsSync(localPath)) {
-      res.setHeader("Content-Type", "application/x-protobuf");
-      res.setHeader("Cache-Control", "public, max-age=604800");
-      res.sendFile(localPath);
-      return;
-    }
-
-    // Proxy from skyway.run
-    try {
-      const upstream = `https://skyway.run/api/${encodeURIComponent(fontstack)}/${range}.pbf`;
-      const response = await fetch(upstream);
-      if (!response.ok) {
-        res.status(response.status).send("Font not found");
-        return;
-      }
-      const buffer = Buffer.from(await response.arrayBuffer());
-
-      // Cache locally
-      const fontDir = path.join(projectRoot, "public", "fonts", fontstack);
-      fs.mkdirSync(fontDir, { recursive: true });
-      fs.writeFileSync(path.join(fontDir, `${range}.pbf`), buffer);
-
-      res.setHeader("Content-Type", "application/x-protobuf");
-      res.setHeader("Cache-Control", "public, max-age=604800");
-      res.send(buffer);
-    } catch (err) {
-      console.error("Font proxy error:", err);
-      res.status(502).send("Font proxy error");
-    }
-  });
-
-  // === Serve map HTML page ===
-  // Served from Express so the iframe has the same origin as the tile server
-  // This avoids the srcDoc null-origin issue with MapLibre web workers
+  // Serve map HTML page — uses self-hosted MVT tiles
   app.get("/api/skyway/map", (req, res) => {
-    // Accept query params for route, user position, nav state
-    const { userLng, userLat, routeCoords, navStep, navDist, navTime, isDark } = req.query;
-
-    const userPosJS = userLng && userLat
-      ? `map.getSource('location').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [${userLng}, ${userLat}] }, properties: {} }] });`
-      : '';
-
-    const routeJS = routeCoords
-      ? `map.getSource('route').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: ${routeCoords} }, properties: {} }] });`
-      : '';
-
-    const navBarHTML = navStep
-      ? `<div class="nav-bar"><div class="nav-step">${navStep}</div><div class="nav-meta">${navDist || ''}m total · ~${navTime || ''} min</div></div>`
-      : '';
-
-    const html = getMapHTML(navBarHTML, userPosJS, routeJS, isDark === 'true');
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Cache-Control', 'no-cache');
+    const isDark = req.query.theme === "dark";
+    // Use same-origin tile URL for dev (avoids cross-origin issues in sandbox)
+    const tileUrl = "/skyway-tiles/{z}/{x}/{y}.mvt";
+    const html = getMapHTML("", "", "", isDark, tileUrl);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   });
 

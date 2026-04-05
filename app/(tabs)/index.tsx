@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,14 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
-import { buildMapHtml } from '@/lib/map-html-builder';
+import { getApiBaseUrl } from '@/constants/oauth';
 import { BleDetailsPanel } from '@/components/ble-details-panel';
 import { CalibrationPanel } from '@/components/calibration-panel';
 
 /**
- * Web map using MapLibre GL JS with skyway.run's vector tile data.
- * The map HTML is built client-side and injected via srcdoc.
- * Tiles and fonts are served from Supabase Edge Functions so the app
- * works without the local Express dev server.
+ * Web map using MapLibre GL JS with self-hosted PMTiles data.
+ * The map HTML is served from the Express server (dev) or Supabase Edge Function (prod)
+ * so the iframe has a proper origin context for MapLibre web workers.
  *
  * No ScreenContainer here — the map should fill edge-to-edge like a native map.
  */
@@ -27,45 +26,10 @@ function WebMapView() {
   const colorScheme = useColorScheme();
   const { state, dispatch } = useNavigation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  // Build the map HTML string client-side
-  const mapHtml = useMemo(() => {
-    const opts: Parameters<typeof buildMapHtml>[0] = {
-      isDark: colorScheme === 'dark',
-    };
-
-    // User position
-    if (state.userPosition) {
-      opts.userLng = state.userPosition.longitude;
-      opts.userLat = state.userPosition.latitude;
-    }
-
-    // Active route
-    if (state.activeRoute) {
-      const nodeMap = new Map(state.nodes.map(n => [n.id, n]));
-      const coords = state.activeRoute.nodeIds
-        .map(id => {
-          const n = nodeMap.get(id);
-          return n ? [n.longitude, n.latitude] : null;
-        })
-        .filter((c): c is number[] => c !== null);
-      if (coords.length > 0) {
-        opts.routeCoords = coords;
-      }
-    }
-
-    // Navigation info
-    if (state.isNavigating && state.activeRoute) {
-      const step = state.activeRoute.steps[state.currentStepIndex];
-      if (step) {
-        opts.navStep = step.instruction;
-        opts.navDist = String(Math.round(state.activeRoute.totalDistance));
-        opts.navTime = String(Math.round(state.activeRoute.estimatedTime / 60));
-      }
-    }
-
-    return buildMapHtml(opts);
-  }, [colorScheme, state.userPosition, state.activeRoute, state.isNavigating, state.currentStepIndex, state.nodes]);
+  // Use Express server map HTML endpoint — serves proper text/html with PMTiles
+  const mapUrl = `${getApiBaseUrl()}/api/skyway/map?theme=${colorScheme === 'dark' ? 'dark' : 'light'}`;
 
   // Send location updates to the iframe via postMessage
   const sendMessage = useCallback((msg: any) => {
@@ -126,7 +90,8 @@ function WebMapView() {
       {Platform.OS === 'web' ? (
         <iframe
           ref={iframeRef as any}
-          srcDoc={mapHtml}
+          src={mapUrl}
+          onLoad={() => setIframeLoaded(true)}
           style={{
             position: 'absolute' as any,
             top: 0,

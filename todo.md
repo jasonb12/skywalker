@@ -82,3 +82,18 @@
 - [x] Test Edge Functions end-to-end and verify map rendering works without dev server
 - [x] Remove dependency on Express server for map/tile/font serving
 - [x] Fix web map iframe not rendering after Edge Function migration (client-side HTML builder)
+- [x] Stop proxying tiles from skyway.run — host our own skyway data
+- [x] Extract Minneapolis skyway data from OpenStreetMap
+- [x] Generate our own vector tiles (MVT/PMTiles) from the OSM data
+- [x] Host tiles and fonts in Supabase Storage (PMTiles on Supabase Storage)
+- [x] Update Edge Functions and client to use self-hosted tile data
+- [x] Remove all skyway.run proxy dependencies
+- [x] Fix PMTiles rendering: migrated from PMTiles/MVT to GeoJSON sources to bypass web worker tile-fetching issues
+- [x] Convert MVT tiles to per-layer GeoJSON files (7 layers: footway, building, roadway, poi, etc.)
+- [x] Upload GeoJSON files to Supabase Storage (map-tiles bucket)
+- [x] Update server-side map-html.ts to use GeoJSON sources with fetch-on-load pattern
+- [x] Update client-side map-html-builder.ts to use GeoJSON sources
+- [x] Update Supabase skyway-map Edge Function to use GeoJSON sources (v3)
+- [x] Update map-config.ts with GeoJSON URL helpers
+- [ ] Deploy Expo web frontend to Supabase (static site hosting)
+- [ ] Ensure full app works without dev server

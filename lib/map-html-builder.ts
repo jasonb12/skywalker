@@ -2,14 +2,14 @@
  * Client-side MapLibre HTML builder.
  *
  * Generates the full map HTML string on the client so we can inject it
- * into an iframe via `srcdoc`. This avoids the Supabase Edge Function
- * content-type issue (returns text/plain instead of text/html) and
- * eliminates the need for a cross-origin fetch entirely.
+ * into an iframe via `srcdoc`.
  *
- * Tile and font URLs still point to the Supabase Edge Functions.
+ * Skyway data is loaded as GeoJSON from Supabase Storage (one file per layer).
+ * Base map uses CARTO raster tiles (free, no API key).
+ * All skyway data extracted from OpenStreetMap (ODbL license).
  */
 
-import { getTileUrl, getFontGlyphsUrl } from './map-config';
+import { getGeojsonBaseUrl, getFontGlyphsUrl, SKYWAY_LAYERS } from './map-config';
 
 interface MapHtmlOptions {
   isDark: boolean;
@@ -32,7 +32,7 @@ export function buildMapHtml(options: MapHtmlOptions): string {
     navTime,
   } = options;
 
-  const tileUrl = getTileUrl();
+  const geojsonBase = getGeojsonBaseUrl();
   const fontUrl = getFontGlyphsUrl();
 
   const bg = isDark ? '#151718' : '#f0f0f0';
@@ -64,6 +64,9 @@ export function buildMapHtml(options: MapHtmlOptions): string {
     ? `map.getSource('route').setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: ${JSON.stringify(routeCoords)} }, properties: {} }] });`
     : '';
 
+  // Build the GeoJSON layer fetch URLs
+  const layerNames = JSON.stringify(SKYWAY_LAYERS);
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -92,8 +95,11 @@ export function buildMapHtml(options: MapHtmlOptions): string {
 <div id="map"></div>
 ${navBarHTML}
 <script>
-  var tileUrl = "${tileUrl}";
   var fontUrl = "${fontUrl}";
+  var geojsonBase = "${geojsonBase}";
+  var layerNames = ${layerNames};
+
+  var emptyFC = { type: "FeatureCollection", features: [] };
 
   var style = {
     version: 8,
@@ -108,26 +114,16 @@ ${navBarHTML}
         tileSize: 256,
         attribution: "&copy; <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> &copy; <a href='https://carto.com/attributions' target='_blank'>CARTO</a>"
       },
-      "skyway": {
-        type: "vector",
-        tiles: [tileUrl],
-        minzoom: 14,
-        maxzoom: 15,
-        bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446],
-        attribution: "Skyway data &copy; <a href='https://skyway.run' target='_blank'>Skyway.run</a> via <a href='https://www.openstreetmap.org/user/hankbp/diary' target='_blank'>OpenStreetMap</a>"
-      },
-      "location": {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] }
-      },
-      "route": {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] }
-      },
-      "heatmap": {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] }
-      }
+      "skyway-footway-simple": { type: "geojson", data: emptyFC, attribution: "Skyway data &copy; <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> contributors (ODbL)" },
+      "skyway-footway": { type: "geojson", data: emptyFC },
+      "skyway-building": { type: "geojson", data: emptyFC },
+      "skyway-building-names": { type: "geojson", data: emptyFC },
+      "skyway-building-simple": { type: "geojson", data: emptyFC },
+      "skyway-roadway": { type: "geojson", data: emptyFC },
+      "skyway-poi": { type: "geojson", data: emptyFC },
+      "location": { type: "geojson", data: emptyFC },
+      "route": { type: "geojson", data: emptyFC },
+      "heatmap": { type: "geojson", data: emptyFC }
     },
     glyphs: fontUrl,
     layers: [
@@ -141,8 +137,7 @@ ${navBarHTML}
       {
         id: "simple-footway-path",
         type: "line",
-        source: "skyway",
-        "source-layer": "footway-simple",
+        source: "skyway-footway-simple",
         minzoom: 0,
         maxzoom: 16.5,
         filter: ["all", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"]],
@@ -155,8 +150,7 @@ ${navBarHTML}
       {
         id: "simple-footway-tunnel",
         type: "line",
-        source: "skyway",
-        "source-layer": "footway-simple",
+        source: "skyway-footway-simple",
         minzoom: 0,
         maxzoom: 16.5,
         filter: ["all", ["!=", ["coalesce", ["get", "layer"], ["get", "level"]], "1"]],
@@ -170,8 +164,7 @@ ${navBarHTML}
       {
         id: "simple-building-dot",
         type: "circle",
-        source: "skyway",
-        "source-layer": "building-simple",
+        source: "skyway-building-simple",
         minzoom: 15,
         maxzoom: 16.5,
         filter: ["all", ["!has", "dot"]],
@@ -183,8 +176,7 @@ ${navBarHTML}
       {
         id: "simple-building-name",
         type: "symbol",
-        source: "skyway",
-        "source-layer": "building-simple",
+        source: "skyway-building-simple",
         minzoom: 15,
         maxzoom: 16.5,
         filter: ["all", ["!has", "dot"]],
@@ -200,22 +192,18 @@ ${navBarHTML}
           "text-padding": 0,
           "text-variable-anchor-offset": ["literal", ["top", [0, -4], "bottom", [0, 4], "top-right", [-1, 2]]]
         },
-        paint: {
-          "text-color": "${textColor}"
-        }
+        paint: { "text-color": "${textColor}" }
       },
       {
         id: "roadway-path",
         type: "line",
-        source: "skyway",
-        "source-layer": "roadway",
+        source: "skyway-roadway",
         paint: { "line-color": "${roadColor}", "line-width": 8 }
       },
       {
         id: "roadway-name",
         type: "symbol",
-        source: "skyway",
-        "source-layer": "roadway",
+        source: "skyway-roadway",
         layout: {
           "text-field": ["get", "name"],
           "text-font": ["Overpass Italic"],
@@ -232,27 +220,21 @@ ${navBarHTML}
       {
         id: "building-fill",
         type: "fill",
-        source: "skyway",
-        "source-layer": "building",
+        source: "skyway-building",
         minzoom: 16.5,
-        paint: {
-          "fill-color": "${buildingFill}",
-          "fill-opacity": 0.8
-        }
+        paint: { "fill-color": "${buildingFill}", "fill-opacity": 0.8 }
       },
       {
         id: "building-outline",
         type: "line",
-        source: "skyway",
-        "source-layer": "building",
+        source: "skyway-building",
         minzoom: 16.5,
         paint: { "line-color": "${buildingOutline}", "line-width": 1 }
       },
       {
         id: "footway-tunnel",
         type: "line",
-        source: "skyway",
-        "source-layer": "footway",
+        source: "skyway-footway",
         minzoom: 16.5,
         filter: ["all", ["!=", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["has", "color"]],
         layout: { "line-cap": "butt", "line-join": "round" },
@@ -265,8 +247,7 @@ ${navBarHTML}
       {
         id: "footway-path",
         type: "line",
-        source: "skyway",
-        "source-layer": "footway",
+        source: "skyway-footway",
         minzoom: 16.5,
         filter: ["all", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["has", "color"]],
         layout: { "line-cap": "round", "line-join": "round" },
@@ -278,8 +259,7 @@ ${navBarHTML}
       {
         id: "building-name",
         type: "symbol",
-        source: "skyway",
-        "source-layer": "building-names",
+        source: "skyway-building-names",
         minzoom: 16.5,
         filter: ["all", ["has", "name"]],
         layout: {
@@ -303,16 +283,14 @@ ${navBarHTML}
       {
         id: "poi-spot",
         type: "circle",
-        source: "skyway",
-        "source-layer": "poi",
+        source: "skyway-poi",
         maxzoom: 17.5,
         paint: { "circle-radius": 2, "circle-color": "${poiColor}" }
       },
       {
         id: "label-poi-active",
         type: "symbol",
-        source: "skyway",
-        "source-layer": "poi",
+        source: "skyway-poi",
         minzoom: 17.5,
         filter: ["all", ["==", "level", "1"]],
         layout: {
@@ -397,7 +375,19 @@ ${navBarHTML}
     dragRotate: false
   });
 
+  // Load GeoJSON data for each skyway layer
   map.on('load', function() {
+    layerNames.forEach(function(layer) {
+      var url = geojsonBase + '/skyway-' + layer + '.geojson';
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var src = map.getSource('skyway-' + layer);
+          if (src) src.setData(data);
+        })
+        .catch(function(err) { console.warn('Failed to load layer ' + layer + ':', err); });
+    });
+
     ${userPosJS}
     ${routeJS}
 

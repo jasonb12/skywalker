@@ -1,8 +1,10 @@
 /**
- * Map configuration — Supabase Edge Function URLs for tiles, fonts, and map HTML.
+ * Map configuration — Self-hosted skyway data on Supabase Storage.
  *
- * These Edge Functions proxy data from skyway.run and serve the MapLibre HTML page,
- * so the app works without the local Express dev server running.
+ * Skyway vector data is served as GeoJSON files from Supabase Storage.
+ * Base map uses CARTO raster tiles (free, no API key).
+ * Fonts use the MapLibre demo font CDN.
+ * All data is extracted from OpenStreetMap (ODbL license).
  */
 
 import Constants from 'expo-constants';
@@ -12,20 +14,48 @@ const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ??
   '';
 
-/** Base URL for the skyway tile proxy Edge Function */
-export function getTileUrl(): string {
-  return `${SUPABASE_URL}/functions/v1/skyway-tile/{z}/{x}/{y}.mvt`;
+/** Skyway source layer names */
+export const SKYWAY_LAYERS = [
+  'footway-simple',
+  'footway',
+  'building',
+  'building-names',
+  'building-simple',
+  'roadway',
+  'poi',
+] as const;
+
+/** Public URL for a skyway GeoJSON layer on Supabase Storage */
+export function getGeojsonUrl(layer: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles/skyway-${layer}.geojson`;
 }
 
-/** Base URL for the skyway font proxy Edge Function */
+/** Base URL for GeoJSON endpoints (for the map HTML to fetch from) */
+export function getGeojsonBaseUrl(): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles`;
+}
+
+/** Public URL for the skyway PMTiles archive on Supabase Storage (legacy) */
+export function getPmtilesUrl(): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles/skyway.pmtiles`;
+}
+
+/**
+ * Font glyphs URL pattern for MapLibre.
+ * Uses the MapLibre demo font server which hosts Overpass and other open fonts.
+ */
 export function getFontGlyphsUrl(): string {
-  return `${SUPABASE_URL}/functions/v1/skyway-fonts/{fontstack}/{range}.pbf`;
+  return 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 }
 
-/** Full URL for the skyway map HTML Edge Function (with query params) */
-export function getMapHtmlUrl(params?: Record<string, string>): string {
-  const base = `${SUPABASE_URL}/functions/v1/skyway-map`;
-  if (!params || Object.keys(params).length === 0) return base;
-  const qs = new URLSearchParams(params).toString();
-  return `${base}?${qs}`;
+/** URL for the skyway-map Edge Function that serves the full MapLibre HTML page */
+export function getMapHtmlUrl(isDark: boolean): string {
+  return `${SUPABASE_URL}/functions/v1/skyway-map${isDark ? '?dark=1' : ''}`;
+}
+
+// ---- Legacy exports (kept for backward compat during migration) ----
+
+/** @deprecated Use getGeojsonUrl() instead */
+export function getTileUrl(): string {
+  return getPmtilesUrl();
 }
