@@ -32,7 +32,7 @@ import { findPath, buildRoute } from '@/lib/pathfinding';
 import { savePath } from '@/lib/storage';
 import type { SavedPath, NavigationStep } from '@/lib/types';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { getApiBaseUrl } from '@/constants/oauth';
+import { getTileUrl, getFontGlyphsUrl } from '@/lib/map-config';
 
 const MPLS_CENTER: [number, number] = [-93.270, 44.976];
 const DEFAULT_ZOOM = 15;
@@ -60,7 +60,8 @@ export default function NativeMap() {
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
   const [showSteps, setShowSteps] = useState(false);
 
-  const apiBase = useMemo(() => getApiBaseUrl(), []);
+  const tileUrl = useMemo(() => getTileUrl(), []);
+  const fontUrl = useMemo(() => getFontGlyphsUrl(), []);
 
   const nodeMap = useMemo(
     () => new Map(state.nodes.map((n) => [n.id, n])),
@@ -90,14 +91,14 @@ export default function NativeMap() {
         },
         'skyway': {
           type: 'vector' as const,
-          tiles: [`${apiBase}/api/skyway/tile/{z}/{x}/{y}.mvt`],
+          tiles: [tileUrl],
           minzoom: 14,
           maxzoom: 15,
           bounds: [-93.3032865, 44.9504244, -93.2271296, 44.9908446],
           attribution: 'Skyway data © Skyway.run via OpenStreetMap',
         },
       },
-      glyphs: `${apiBase}/api/skyway/fonts/{fontstack}/{range}.pbf`,
+      glyphs: fontUrl,
       layers: [
         {
           id: 'base-map',
@@ -293,7 +294,7 @@ export default function NativeMap() {
         },
       ],
     };
-  }, [isDark, apiBase]);
+  }, [isDark, tileUrl, fontUrl]);
 
   // Route GeoJSON for active navigation
   const routeGeoJSON = useMemo(() => {

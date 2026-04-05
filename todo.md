@@ -75,3 +75,10 @@
 - [x] Share BLE fingerprints across all users via Supabase
 - [x] Add fingerprint calibration mode with manual "Record Location" button
 - [x] Build heatmap overlay showing fingerprint coverage density on map
+- [x] Create Supabase Edge Function: skyway-tile (proxy MVT tiles from skyway.run)
+- [x] Create Supabase Edge Function: skyway-fonts (proxy font glyphs from skyway.run)
+- [x] Create Supabase Edge Function: skyway-map (serve MapLibre HTML page)
+- [x] Update client to use Supabase Edge Function URLs instead of Express localhost
+- [x] Test Edge Functions end-to-end and verify map rendering works without dev server
+- [x] Remove dependency on Express server for map/tile/font serving
+- [x] Fix web map iframe not rendering after Edge Function migration (client-side HTML builder)

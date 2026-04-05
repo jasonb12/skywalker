@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,15 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
-import { getApiBaseUrl } from '@/constants/oauth';
+import { buildMapHtml } from '@/lib/map-html-builder';
 import { BleDetailsPanel } from '@/components/ble-details-panel';
 import { CalibrationPanel } from '@/components/calibration-panel';
 
 /**
  * Web map using MapLibre GL JS with skyway.run's vector tile data.
- * The map HTML is served from the Express server (/api/skyway/map)
- * so the iframe has a proper origin and MapLibre workers can fetch tiles.
+ * The map HTML is built client-side and injected via srcdoc.
+ * Tiles and fonts are served from Supabase Edge Functions so the app
+ * works without the local Express dev server.
  *
  * No ScreenContainer here — the map should fill edge-to-edge like a native map.
  */
@@ -27,20 +28,16 @@ function WebMapView() {
   const { state, dispatch } = useNavigation();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Build the map URL with query params
-  const mapUrl = useMemo(() => {
-    const apiBase = getApiBaseUrl();
-    const params = new URLSearchParams();
-
-    // Dark mode
-    if (colorScheme === 'dark') {
-      params.set('isDark', 'true');
-    }
+  // Build the map HTML string client-side
+  const mapHtml = useMemo(() => {
+    const opts: Parameters<typeof buildMapHtml>[0] = {
+      isDark: colorScheme === 'dark',
+    };
 
     // User position
     if (state.userPosition) {
-      params.set('userLng', String(state.userPosition.longitude));
-      params.set('userLat', String(state.userPosition.latitude));
+      opts.userLng = state.userPosition.longitude;
+      opts.userLat = state.userPosition.latitude;
     }
 
     // Active route
@@ -51,9 +48,9 @@ function WebMapView() {
           const n = nodeMap.get(id);
           return n ? [n.longitude, n.latitude] : null;
         })
-        .filter(Boolean);
+        .filter((c): c is number[] => c !== null);
       if (coords.length > 0) {
-        params.set('routeCoords', JSON.stringify(coords));
+        opts.routeCoords = coords;
       }
     }
 
@@ -61,13 +58,13 @@ function WebMapView() {
     if (state.isNavigating && state.activeRoute) {
       const step = state.activeRoute.steps[state.currentStepIndex];
       if (step) {
-        params.set('navStep', step.instruction);
-        params.set('navDist', String(Math.round(state.activeRoute.totalDistance)));
-        params.set('navTime', String(Math.round(state.activeRoute.estimatedTime / 60)));
+        opts.navStep = step.instruction;
+        opts.navDist = String(Math.round(state.activeRoute.totalDistance));
+        opts.navTime = String(Math.round(state.activeRoute.estimatedTime / 60));
       }
     }
 
-    return `${apiBase}/api/skyway/map?${params.toString()}`;
+    return buildMapHtml(opts);
   }, [colorScheme, state.userPosition, state.activeRoute, state.isNavigating, state.currentStepIndex, state.nodes]);
 
   // Send location updates to the iframe via postMessage
@@ -129,7 +126,7 @@ function WebMapView() {
       {Platform.OS === 'web' ? (
         <iframe
           ref={iframeRef as any}
-          src={mapUrl}
+          srcDoc={mapHtml}
           style={{
             position: 'absolute' as any,
             top: 0,
