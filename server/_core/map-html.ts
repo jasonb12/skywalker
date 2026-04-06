@@ -339,11 +339,12 @@ ${navBarHTML}
     style: style,
     center: [-93.270, 44.976],
     zoom: 15,
+    bearing: 30,
     minZoom: 13,
     maxZoom: 19,
     attributionControl: true,
     pitchWithRotate: false,
-    dragRotate: false
+    dragRotate: true
   });
 
   // Load GeoJSON data for each skyway layer

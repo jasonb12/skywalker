@@ -97,3 +97,4 @@
 - [x] Update map-config.ts with GeoJSON URL helpers
 - [ ] Deploy Expo web frontend to Supabase (static site hosting)
 - [ ] Ensure full app works without dev server
+- [x] Fix skyway GeoJSON overlay rotation/alignment — set bearing:30 to match Minneapolis street grid orientation (matching skyway.run reference)
