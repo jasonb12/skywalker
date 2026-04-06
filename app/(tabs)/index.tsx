@@ -14,9 +14,12 @@ import { getApiBaseUrl } from '@/constants/oauth';
 import { BleDetailsPanel } from '@/components/ble-details-panel';
 import { CalibrationPanel } from '@/components/calibration-panel';
 import { applyUserCorrection, getOffsetDecayFactor, hasActiveOffset } from '@/lib/gps-offset';
+import { snapToSkyway, preloadFootwayData } from '@/lib/snap-to-skyway';
+import { addCorrectionRecord } from '@/lib/correction-history';
+import { haptic } from '@/lib/haptics';
 
 /**
- * Web map using MapLibre GL JS with self-hosted PMTiles data.
+ * Web map using MapLibre GL JS with self-hosted data.
  * The map HTML is served from the Express server (dev) or Supabase Edge Function (prod)
  * so the iframe has a proper origin context for MapLibre web workers.
  *
@@ -33,10 +36,8 @@ function WebMapView({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  // Use Express server map HTML endpoint — serves proper text/html with PMTiles
   const mapUrl = `${getApiBaseUrl()}/api/skyway/map?theme=${colorScheme === 'dark' ? 'dark' : 'light'}`;
 
-  // Send location updates to the iframe via postMessage
   const sendMessage = useCallback((msg: any) => {
     if (iframeRef.current) {
       const iframe = iframeRef.current as any;
@@ -46,7 +47,7 @@ function WebMapView({
     }
   }, []);
 
-  // Update location when it changes (without full reload)
+  // Update location when it changes
   useEffect(() => {
     if (state.userPosition && !state.isFixingPosition) {
       sendMessage({
@@ -66,7 +67,6 @@ function WebMapView({
         lat: state.userPosition?.latitude,
       });
     } else {
-      // Only send exitFixMode if we previously entered fix mode
       sendMessage({
         type: 'exitFixMode',
         correctedLng: state.fixPositionCrosshairCoords?.lng,
@@ -93,7 +93,7 @@ function WebMapView({
     }
   }, [state.heatmapData, sendMessage]);
 
-  // Listen for messages from iframe (crosshair coords, heatmap state)
+  // Listen for messages from iframe
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handler = (e: MessageEvent) => {
@@ -101,9 +101,6 @@ function WebMapView({
         const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         if (msg.type === 'crosshairCoords' && onCrosshairCoords) {
           onCrosshairCoords(msg.lat, msg.lng);
-        }
-        if (msg.type === 'heatmapState') {
-          // Keep local state in sync with map
         }
       } catch {}
     };
@@ -214,9 +211,11 @@ function FixPositionButton({ onPress, offsetActive }: { onPress: () => void; off
 function FixPositionConfirmBar({
   onConfirm,
   onCancel,
+  isSnapping,
 }: {
   onConfirm: () => void;
   onCancel: () => void;
+  isSnapping: boolean;
 }) {
   const colors = useColors();
 
@@ -228,7 +227,8 @@ function FixPositionConfirmBar({
             Fix Your Position
           </Text>
           <Text style={[styles.fixConfirmSubtitle, { color: colors.muted }]}>
-            Drag the map so the crosshair is on your actual location
+            Drag the map so the crosshair is on your actual location.{'\n'}
+            Your position will snap to the nearest skyway path.
           </Text>
         </View>
         <View style={styles.fixConfirmButtons}>
@@ -236,15 +236,21 @@ function FixPositionConfirmBar({
             onPress={onCancel}
             activeOpacity={0.7}
             style={[styles.fixCancelBtn, { borderColor: colors.border }]}
+            disabled={isSnapping}
           >
             <Text style={[styles.fixCancelText, { color: colors.muted }]}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onConfirm}
             activeOpacity={0.7}
-            style={styles.fixConfirmBtn}
+            style={[styles.fixConfirmBtn, isSnapping && { opacity: 0.6 }]}
+            disabled={isSnapping}
           >
-            <Text style={styles.fixConfirmBtnText}>Confirm</Text>
+            {isSnapping ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.fixConfirmBtnText}>Confirm</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -324,6 +330,7 @@ export default function MapScreen() {
   const [calibrationVisible, setCalibrationVisible] = useState(false);
   const [heatmapActive, setHeatmapActive] = useState(false);
   const [crosshairCoords, setCrosshairCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSnapping, setIsSnapping] = useState(false);
 
   // Track GPS offset status for the button indicator
   const [offsetActive, setOffsetActive] = useState(false);
@@ -332,6 +339,11 @@ export default function MapScreen() {
       setOffsetActive(hasActiveOffset());
     }, 2000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Pre-load footway data for snap-to-skyway
+  useEffect(() => {
+    preloadFootwayData();
   }, []);
 
   const handleStartFixPosition = useCallback(() => {
@@ -343,53 +355,91 @@ export default function MapScreen() {
     setCrosshairCoords(null);
   }, [dispatch]);
 
-  const handleConfirmFixPosition = useCallback(() => {
+  const handleConfirmFixPosition = useCallback(async () => {
     if (!crosshairCoords) {
       dispatch({ type: 'CANCEL_FIX_POSITION' });
       return;
     }
 
-    // Apply the GPS offset correction
-    const gpsLat = state.userPosition?.latitude ?? crosshairCoords.lat;
-    const gpsLng = state.userPosition?.longitude ?? crosshairCoords.lng;
-    const gpsAccuracy = state.userPosition?.accuracy ?? 50;
+    setIsSnapping(true);
 
-    const result = applyUserCorrection(
-      gpsLat,
-      gpsLng,
-      gpsAccuracy,
-      crosshairCoords.lat,
-      crosshairCoords.lng
-    );
+    try {
+      // Step 1: Snap to nearest skyway path
+      const snapResult = await snapToSkyway(crosshairCoords.lat, crosshairCoords.lng);
+      const finalLat = snapResult.snapped ? snapResult.lat : crosshairCoords.lat;
+      const finalLng = snapResult.snapped ? snapResult.lng : crosshairCoords.lng;
 
-    if (result.success) {
-      console.log(
-        `[FixPosition] Correction applied. BLE fingerprint: ${result.fingerprintCaptured ? 'yes' : 'no'} (${result.bleDeviceCount} devices)`
+      // Step 2: Apply the GPS offset correction
+      const gpsLat = state.userPosition?.latitude ?? finalLat;
+      const gpsLng = state.userPosition?.longitude ?? finalLng;
+      const gpsAccuracy = state.userPosition?.accuracy ?? 50;
+
+      const result = applyUserCorrection(
+        gpsLat,
+        gpsLng,
+        gpsAccuracy,
+        finalLat,
+        finalLng
       );
 
-      // Update the crosshair coords in state before confirming
-      dispatch({ type: 'SET_CROSSHAIR_COORDS', lat: crosshairCoords.lat, lng: crosshairCoords.lng });
-      dispatch({ type: 'CONFIRM_FIX_POSITION' });
+      if (result.success) {
+        // Step 3: Haptic feedback — success pulse
+        haptic.success();
 
-      // Update the displayed position to the corrected one
-      if (state.userPosition) {
-        dispatch({
-          type: 'SET_POSITION',
-          position: {
-            ...state.userPosition,
-            latitude: crosshairCoords.lat,
-            longitude: crosshairCoords.lng,
-            accuracy: 3,
-            source: 'snapped',
-          },
+        console.log(
+          `[FixPosition] Correction applied. ` +
+          `Snapped: ${snapResult.snapped} (${snapResult.distanceMeters.toFixed(1)}m). ` +
+          `BLE fingerprint: ${result.fingerprintCaptured ? 'yes' : 'no'} (${result.bleDeviceCount} devices)`
+        );
+
+        // Step 4: Save to correction history
+        const offsetDistance = haversineMeters(gpsLat, gpsLng, finalLat, finalLng);
+        await addCorrectionRecord({
+          timestamp: Date.now(),
+          gpsLat,
+          gpsLng,
+          gpsAccuracy,
+          correctedLat: finalLat,
+          correctedLng: finalLng,
+          offsetDistanceMeters: offsetDistance,
+          snappedToSkyway: snapResult.snapped,
+          snapDistanceMeters: snapResult.distanceMeters,
+          skywayColor: snapResult.segmentColor,
+          bleDeviceCount: result.bleDeviceCount,
+          fingerprintCaptured: result.fingerprintCaptured,
         });
-      }
-    } else {
-      console.warn('[FixPosition] Correction rejected (too far from GPS)');
-      dispatch({ type: 'CANCEL_FIX_POSITION' });
-    }
 
-    setCrosshairCoords(null);
+        // Step 5: Update state
+        dispatch({ type: 'SET_CROSSHAIR_COORDS', lat: finalLat, lng: finalLng });
+        dispatch({ type: 'CONFIRM_FIX_POSITION' });
+
+        // Update the displayed position to the corrected one
+        if (state.userPosition) {
+          dispatch({
+            type: 'SET_POSITION',
+            position: {
+              ...state.userPosition,
+              latitude: finalLat,
+              longitude: finalLng,
+              accuracy: 3,
+              source: 'snapped',
+            },
+          });
+        }
+      } else {
+        // Correction rejected (too far)
+        haptic.error();
+        console.warn('[FixPosition] Correction rejected (too far from GPS)');
+        dispatch({ type: 'CANCEL_FIX_POSITION' });
+      }
+    } catch (e) {
+      console.error('[FixPosition] Error during correction:', e);
+      haptic.error();
+      dispatch({ type: 'CANCEL_FIX_POSITION' });
+    } finally {
+      setIsSnapping(false);
+      setCrosshairCoords(null);
+    }
   }, [crosshairCoords, state.userPosition, dispatch]);
 
   const handleCrosshairCoords = useCallback((lat: number, lng: number) => {
@@ -422,25 +472,17 @@ export default function MapScreen() {
       {/* Only show floating buttons when NOT in fix-position mode */}
       {!state.isFixingPosition && (
         <>
-          {/* BLE Status Pill - floating button */}
           <BleStatusPill onPress={() => setBleDetailsVisible(true)} />
-
-          {/* Calibration button - below BLE pill */}
           <CalibrationButton onPress={() => setCalibrationVisible(true)} />
-
-          {/* Fix Position button */}
           <FixPositionButton
             onPress={handleStartFixPosition}
             offsetActive={offsetActive}
           />
-
-          {/* Heatmap toggle button */}
           <HeatmapButton
             active={heatmapActive}
             onPress={() => {
               setHeatmapActive(!heatmapActive);
               dispatch({ type: 'TOGGLE_HEATMAP' });
-              // Send toggle message to iframe on web
               if (Platform.OS === 'web') {
                 const iframes = document.querySelectorAll('iframe');
                 iframes.forEach((iframe) => {
@@ -449,8 +491,6 @@ export default function MapScreen() {
               }
             }}
           />
-
-          {/* GPS Offset decay indicator */}
           <GpsOffsetIndicator />
         </>
       )}
@@ -460,6 +500,7 @@ export default function MapScreen() {
         <FixPositionConfirmBar
           onConfirm={handleConfirmFixPosition}
           onCancel={handleCancelFixPosition}
+          isSnapping={isSnapping}
         />
       )}
 
@@ -476,6 +517,23 @@ export default function MapScreen() {
       />
     </View>
   );
+}
+
+// ─── Haversine helper (local to this file) ───────────────────────────
+
+function haversineMeters(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 const styles = StyleSheet.create({
@@ -653,6 +711,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FF3B30',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   fixConfirmBtnText: {
     fontSize: 15,

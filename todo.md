@@ -125,3 +125,6 @@
 - [x] Add confirmation bottom bar with Confirm/Cancel buttons
 - [x] Integrate full fix-position flow in index.tsx
 - [x] Animate blue dot transition on position correction (via exitFixMode postMessage)
+- [x] Snap-to-nearest-skyway: when user confirms fix position, snap crosshair to nearest skyway path segment
+- [x] Correction history: store past GPS corrections and display them in the History tab
+- [x] Haptic feedback: add haptic pulse when position correction is confirmed (success + error)
