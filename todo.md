@@ -111,3 +111,7 @@
 - [x] Verify converted GeoJSON landmarks match ground truth (within 30-50m, limited by tile resolution)
 - [x] Integrate corrected GeoJSON into the app
 - [x] Visual verification of skyway-to-street alignment — confirmed paths follow street grid correctly
+- [x] Upload corrected GeoJSON files to S3 CDN storage for production use without dev server
+- [x] Update client-side map-html-builder.ts to use S3 CDN GeoJSON URLs
+- [x] Add route color legend overlay showing what each of the 10 skyway colors represents
+- [x] Implement auto-zoom to fit the full skyway network bounds on first load

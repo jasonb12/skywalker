@@ -3,11 +3,32 @@
  *
  * Skyway data is loaded from GeoJSON endpoints (one per source layer).
  * Base map uses CARTO raster tiles (free, no API key).
- * All skyway data extracted from OpenStreetMap (ODbL license).
+ * All skyway data extracted from OpenStreetMap (ODbL license) via skyway.run.
  */
 
 const FONT_GLYPHS_URL =
   "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
+
+/** Route color definitions from skyway.run data */
+const ROUTE_COLORS = [
+  { color: '#de1215', name: 'Red', zone: 'Northwest' },
+  { color: '#c1105a', name: 'Pink', zone: 'West Central' },
+  { color: '#74133f', name: 'Maroon', zone: 'Southwest' },
+  { color: '#894406', name: 'Brown', zone: 'Central East' },
+  { color: '#008540', name: 'Green', zone: 'Nicollet Mall' },
+  { color: '#177eab', name: 'Teal', zone: 'Central West' },
+  { color: '#2e3092', name: 'Blue', zone: 'Central South' },
+  { color: '#7f3f98', name: 'Purple', zone: 'East' },
+  { color: '#666666', name: 'Gray', zone: 'South' },
+  { color: '#333333', name: 'Dark Gray', zone: 'Connectors' },
+];
+
+/** Bounding box of the skyway network */
+const SKYWAY_BOUNDS = {
+  sw: [-93.279135, 44.969565],
+  ne: [-93.257473, 44.983473],
+  center: [-93.268304, 44.976519],
+};
 
 export function getMapHTML(
   navBarHTML: string,
@@ -33,7 +54,13 @@ export function getMapHTML(
   const poiTextColor = isDark ? "rgba(200,200,200,1)" : "rgba(45,45,45,1)";
   const heatStroke = isDark ? "#222" : "#fff";
 
-  // Build GeoJSON base URL — use same origin for dev, or tileUrlTemplate base for production
+  // Legend colors
+  const legendBg = isDark ? "rgba(21,23,24,0.92)" : "rgba(255,255,255,0.92)";
+  const legendText = isDark ? "#ECEDEE" : "#333";
+  const legendSubtext = isDark ? "#9BA1A6" : "#666";
+  const legendBorder = isDark ? "#334155" : "#e0e0e0";
+
+  // Build GeoJSON base URL — use same origin for dev
   const geojsonBase = tileUrlTemplate
     ? tileUrlTemplate.replace(/\/skyway-tiles\/.*$/, "/api/skyway/geojson")
     : "/api/skyway/geojson";
@@ -60,14 +87,137 @@ export function getMapHTML(
   .maplibregl-ctrl-attrib { font-size: 9px !important; opacity: 0.7; }
   .maplibregl-ctrl-attrib a { color: ${attrLinkColor}; text-decoration: none; }
   .maplibregl-ctrl-attrib a:hover { text-decoration: underline; }
+
+  /* Legend */
+  .legend-toggle {
+    position: fixed;
+    bottom: 32px;
+    left: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: ${legendBg};
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid ${legendBorder};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1001;
+    font-size: 16px;
+    color: ${legendText};
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    transition: opacity 0.2s;
+  }
+  .legend-toggle:hover { opacity: 0.85; }
+  .legend-panel {
+    position: fixed;
+    bottom: 70px;
+    left: 10px;
+    background: ${legendBg};
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid ${legendBorder};
+    border-radius: 10px;
+    padding: 10px 12px;
+    z-index: 1001;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    max-height: 320px;
+    overflow-y: auto;
+    display: none;
+  }
+  .legend-panel.open { display: block; }
+  .legend-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: ${legendSubtext};
+    margin-bottom: 6px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .legend-swatch {
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .legend-swatch.dashed {
+    background: repeating-linear-gradient(
+      90deg,
+      currentColor 0px, currentColor 4px,
+      transparent 4px, transparent 7px
+    );
+    height: 4px;
+  }
+  .legend-label {
+    font-size: 11px;
+    color: ${legendText};
+    line-height: 1.2;
+  }
+  .legend-zone {
+    font-size: 10px;
+    color: ${legendSubtext};
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .legend-divider {
+    height: 1px;
+    background: ${legendBorder};
+    margin: 6px 0;
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
 ${navBarHTML}
+
+<!-- Legend toggle button -->
+<div class="legend-toggle" id="legendToggle" title="Route Legend">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="1" y="2" width="14" height="3" rx="1.5" fill="${legendSubtext}" opacity="0.4"/>
+    <rect x="1" y="7" width="14" height="3" rx="1.5" fill="${legendSubtext}" opacity="0.4"/>
+    <rect x="1" y="12" width="10" height="3" rx="1.5" fill="${legendSubtext}" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- Legend panel -->
+<div class="legend-panel" id="legendPanel">
+  <div class="legend-title">Skyway Routes</div>
+  <div id="legendItems"></div>
+  <div class="legend-divider"></div>
+  <div class="legend-item">
+    <div class="legend-swatch dashed" style="color: #666"></div>
+    <span class="legend-label">Tunnel</span>
+    <span class="legend-zone">Below street</span>
+  </div>
+</div>
+
 <script>
   var fontUrl = "${FONT_GLYPHS_URL}";
   var geojsonBase = "${geojsonBase}";
+  var routeColors = ${JSON.stringify(ROUTE_COLORS)};
+  var skywayBounds = ${JSON.stringify(SKYWAY_BOUNDS)};
+
+  // Build legend items
+  var legendItems = document.getElementById('legendItems');
+  routeColors.forEach(function(rc) {
+    var item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = '<div class="legend-swatch" style="background:' + rc.color + '"></div>' +
+      '<span class="legend-label">' + rc.name + '</span>' +
+      '<span class="legend-zone">' + rc.zone + '</span>';
+    legendItems.appendChild(item);
+  });
+
+  // Toggle legend
+  document.getElementById('legendToggle').addEventListener('click', function() {
+    document.getElementById('legendPanel').classList.toggle('open');
+  });
 
   // Empty GeoJSON placeholder
   var emptyFC = { type: "FeatureCollection", features: [] };
@@ -337,7 +487,7 @@ ${navBarHTML}
   var map = new maplibregl.Map({
     container: 'map',
     style: style,
-    center: [-93.270, 44.976],
+    center: skywayBounds.center,
     zoom: 15,
     bearing: 0,
     minZoom: 13,
@@ -347,17 +497,31 @@ ${navBarHTML}
     dragRotate: true
   });
 
-  // Load GeoJSON data for each skyway layer
+  // Load GeoJSON data for each skyway layer, then auto-zoom to fit
   map.on('load', function() {
     var layers = ['footway-simple', 'footway', 'building', 'building-names', 'building-simple', 'roadway', 'poi'];
+    var loadedCount = 0;
+    var totalLayers = layers.length;
+
     layers.forEach(function(layer) {
       fetch(geojsonBase + '/' + layer + '?_t=' + Date.now())
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var src = map.getSource('skyway-' + layer);
           if (src) src.setData(data);
+          loadedCount++;
+          // After all layers loaded, fit bounds to show full skyway network
+          if (loadedCount === totalLayers) {
+            map.fitBounds(
+              [skywayBounds.sw, skywayBounds.ne],
+              { padding: { top: 20, bottom: 40, left: 20, right: 20 }, duration: 800 }
+            );
+          }
         })
-        .catch(function(err) { console.warn('Failed to load layer ' + layer + ':', err); });
+        .catch(function(err) {
+          console.warn('Failed to load layer ' + layer + ':', err);
+          loadedCount++;
+        });
     });
 
     ${userPosJS}

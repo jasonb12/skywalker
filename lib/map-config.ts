@@ -1,18 +1,15 @@
 /**
- * Map configuration — Self-hosted skyway data on Supabase Storage.
+ * Map configuration — Self-hosted skyway data on S3/CDN storage.
  *
- * Skyway vector data is served as GeoJSON files from Supabase Storage.
+ * Skyway vector data is served as GeoJSON files from S3 CDN.
  * Base map uses CARTO raster tiles (free, no API key).
  * Fonts use the MapLibre demo font CDN.
- * All data is extracted from OpenStreetMap (ODbL license).
+ * All data is extracted from OpenStreetMap (ODbL license) via skyway.run.
  */
 
-import Constants from 'expo-constants';
-
-const SUPABASE_URL =
-  Constants.expoConfig?.extra?.supabaseUrl ??
-  process.env.EXPO_PUBLIC_SUPABASE_URL ??
-  '';
+/** CDN base URL for GeoJSON files */
+const GEOJSON_CDN_BASE =
+  'https://d2xsxph8kpxj0f.cloudfront.net/310519663073371114/ni6f2tiWMMwdiAqNoUpTSw/map-tiles';
 
 /** Skyway source layer names */
 export const SKYWAY_LAYERS = [
@@ -25,19 +22,14 @@ export const SKYWAY_LAYERS = [
   'poi',
 ] as const;
 
-/** Public URL for a skyway GeoJSON layer on Supabase Storage */
+/** Public URL for a skyway GeoJSON layer on S3 CDN */
 export function getGeojsonUrl(layer: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles/skyway-${layer}.geojson`;
+  return `${GEOJSON_CDN_BASE}/skyway-${layer}.geojson`;
 }
 
 /** Base URL for GeoJSON endpoints (for the map HTML to fetch from) */
 export function getGeojsonBaseUrl(): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles`;
-}
-
-/** Public URL for the skyway PMTiles archive on Supabase Storage (legacy) */
-export function getPmtilesUrl(): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/map-tiles/skyway.pmtiles`;
+  return GEOJSON_CDN_BASE;
 }
 
 /**
@@ -48,14 +40,41 @@ export function getFontGlyphsUrl(): string {
   return 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
 }
 
-/** URL for the skyway-map Edge Function that serves the full MapLibre HTML page */
-export function getMapHtmlUrl(isDark: boolean): string {
-  return `${SUPABASE_URL}/functions/v1/skyway-map${isDark ? '?dark=1' : ''}`;
-}
+/**
+ * Bounding box of the Minneapolis skyway network.
+ * Used for auto-zoom to fit on first load.
+ */
+export const SKYWAY_BOUNDS = {
+  sw: [-93.279135, 44.969565] as [number, number],
+  ne: [-93.257473, 44.983473] as [number, number],
+  center: [-93.268304, 44.976519] as [number, number],
+};
+
+/**
+ * Route color definitions from skyway.run data.
+ * Colors represent geographic zones of the skyway network.
+ */
+export const SKYWAY_ROUTE_COLORS = [
+  { color: '#de1215', name: 'Red', zone: 'Northwest' },
+  { color: '#c1105a', name: 'Pink', zone: 'West Central' },
+  { color: '#74133f', name: 'Maroon', zone: 'Southwest' },
+  { color: '#894406', name: 'Brown', zone: 'Central East' },
+  { color: '#008540', name: 'Green', zone: 'Nicollet Mall' },
+  { color: '#177eab', name: 'Teal', zone: 'Central West' },
+  { color: '#2e3092', name: 'Blue', zone: 'Central South' },
+  { color: '#7f3f98', name: 'Purple', zone: 'East' },
+  { color: '#666666', name: 'Gray', zone: 'South' },
+  { color: '#333333', name: 'Dark Gray', zone: 'Connectors' },
+] as const;
 
 // ---- Legacy exports (kept for backward compat during migration) ----
 
 /** @deprecated Use getGeojsonUrl() instead */
+export function getPmtilesUrl(): string {
+  return '';
+}
+
+/** @deprecated Use getGeojsonUrl() instead */
 export function getTileUrl(): string {
-  return getPmtilesUrl();
+  return '';
 }
