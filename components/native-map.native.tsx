@@ -112,7 +112,7 @@ export default function NativeMap() {
           'source-layer': 'footway-simple',
           minzoom: 0,
           maxzoom: 16.5,
-          filter: ['all', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1']],
+          filter: ['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]],
           layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
           paint: {
             'line-color': ['get', 'color'],
@@ -126,7 +126,7 @@ export default function NativeMap() {
           'source-layer': 'footway-simple',
           minzoom: 0,
           maxzoom: 16.5,
-          filter: ['all', ['!=', ['coalesce', ['get', 'layer'], ['get', 'level']], '1']],
+          filter: ['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']],
           layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
           paint: {
             'line-color': ['get', 'color'],
@@ -221,7 +221,7 @@ export default function NativeMap() {
           source: 'skyway',
           'source-layer': 'footway',
           minzoom: 16.5,
-          filter: ['all', ['!=', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['has', 'color']],
+          filter: ['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']],
           layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
           paint: {
             'line-color': ['get', 'color'],
@@ -235,7 +235,7 @@ export default function NativeMap() {
           source: 'skyway',
           'source-layer': 'footway',
           minzoom: 16.5,
-          filter: ['all', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['has', 'color']],
+          filter: ['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]],
           layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
           paint: {
             'line-color': ['get', 'color'],
@@ -280,7 +280,7 @@ export default function NativeMap() {
           source: 'skyway',
           'source-layer': 'poi',
           minzoom: 17.5,
-          filter: ['all', ['==', 'level', '1']],
+          filter: ['all', ['has', 'name']],
           layout: {
             'symbol-placement': 'point' as const,
             'text-field': ['get', 'name'],

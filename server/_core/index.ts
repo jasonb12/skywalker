@@ -84,7 +84,7 @@ async function startServer() {
       const filePath = path.join(projectRoot, `public/skyway-${layer}.geojson`);
       if (fs.existsSync(filePath)) {
         res.setHeader("Content-Type", "application/geo+json");
-        res.setHeader("Cache-Control", "public, max-age=604800");
+        res.setHeader("Cache-Control", "no-cache, must-revalidate");
         res.sendFile(filePath);
       } else {
         res.status(404).json({ error: `Layer ${layer} not found` });

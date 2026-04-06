@@ -111,7 +111,7 @@ ${navBarHTML}
         source: "skyway-footway-simple",
         minzoom: 0,
         maxzoom: 16.5,
-        filter: ["all", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"]],
+        filter: ["all", ["has", "color"], ["any", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["all", ["!", ["has", "layer"]], ["!", ["has", "level"]]]]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": ["get", "color"],
@@ -124,7 +124,7 @@ ${navBarHTML}
         source: "skyway-footway-simple",
         minzoom: 0,
         maxzoom: 16.5,
-        filter: ["all", ["!=", ["coalesce", ["get", "layer"], ["get", "level"]], "1"]],
+        filter: ["all", ["has", "color"], ["has", "layer"], ["!=", ["get", "layer"], "1"]],
         layout: { "line-cap": "butt", "line-join": "round" },
         paint: {
           "line-color": ["get", "color"],
@@ -138,10 +138,10 @@ ${navBarHTML}
         source: "skyway-building-simple",
         minzoom: 15,
         maxzoom: 16.5,
-        filter: ["all", ["!has", "dot"]],
+        filter: ["all", ["has", "name"]],
         paint: {
-          "circle-radius": ["interpolate", ["exponential", 2], ["zoom"], 15, 8, 16, 15],
-          "circle-color": ["get", "color"]
+          "circle-radius": ["interpolate", ["exponential", 2], ["zoom"], 15, 6, 16, 10],
+          "circle-color": "${isDark ? '#555' : '#999'}"
         }
       },
       {
@@ -150,7 +150,7 @@ ${navBarHTML}
         source: "skyway-building-simple",
         minzoom: 15,
         maxzoom: 16.5,
-        filter: ["all", ["!has", "dot"]],
+        filter: ["all", ["has", "name"]],
         layout: {
           "symbol-placement": "point",
           "text-field": ["get", "name"],
@@ -207,7 +207,7 @@ ${navBarHTML}
         type: "line",
         source: "skyway-footway",
         minzoom: 16.5,
-        filter: ["all", ["!=", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["has", "color"]],
+        filter: ["all", ["has", "color"], ["has", "layer"], ["!=", ["get", "layer"], "1"]],
         layout: { "line-cap": "butt", "line-join": "round" },
         paint: {
           "line-color": ["get", "color"],
@@ -220,7 +220,7 @@ ${navBarHTML}
         type: "line",
         source: "skyway-footway",
         minzoom: 16.5,
-        filter: ["all", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["has", "color"]],
+        filter: ["all", ["has", "color"], ["any", ["==", ["coalesce", ["get", "layer"], ["get", "level"]], "1"], ["all", ["!", ["has", "layer"]], ["!", ["has", "level"]]]]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": ["get", "color"],
@@ -263,7 +263,7 @@ ${navBarHTML}
         type: "symbol",
         source: "skyway-poi",
         minzoom: 17.5,
-        filter: ["all", ["==", "level", "1"]],
+        filter: ["all", ["has", "name"]],
         layout: {
           "symbol-placement": "point",
           "text-field": ["get", "name"],
@@ -339,7 +339,7 @@ ${navBarHTML}
     style: style,
     center: [-93.270, 44.976],
     zoom: 15,
-    bearing: 30,
+    bearing: 0,
     minZoom: 13,
     maxZoom: 19,
     attributionControl: true,
@@ -351,7 +351,7 @@ ${navBarHTML}
   map.on('load', function() {
     var layers = ['footway-simple', 'footway', 'building', 'building-names', 'building-simple', 'roadway', 'poi'];
     layers.forEach(function(layer) {
-      fetch(geojsonBase + '/' + layer)
+      fetch(geojsonBase + '/' + layer + '?_t=' + Date.now())
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var src = map.getSource('skyway-' + layer);

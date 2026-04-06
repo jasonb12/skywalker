@@ -98,3 +98,16 @@
 - [ ] Deploy Expo web frontend to Supabase (static site hosting)
 - [ ] Ensure full app works without dev server
 - [x] Fix skyway GeoJSON overlay rotation/alignment — set bearing:30 to match Minneapolis street grid orientation (matching skyway.run reference)
+- [x] Diagnose and fix skyway map overlay misalignment — GeoJSON data does not properly align with base map streets
+- [x] Pull in skyway.run data directly and serve it through the app
+- [x] Investigate skyway.run data sources and API endpoints
+- [x] Download skyway.run GeoJSON/vector tile data
+- [x] Update map rendering to use skyway.run data with proper styling and alignment
+- [x] Test map alignment and visual accuracy against skyway.run reference
+- [x] Establish ground-truth landmark coordinates from authoritative sources
+- [x] Verify base map (CARTO tiles) alignment against ground-truth landmarks
+- [x] Re-download full skyway.run tile set with complete coverage
+- [x] Fix MVT-to-GeoJSON conversion: y-flip, coverage, dedup issues
+- [x] Verify converted GeoJSON landmarks match ground truth (within 30-50m, limited by tile resolution)
+- [x] Integrate corrected GeoJSON into the app
+- [x] Visual verification of skyway-to-street alignment — confirmed paths follow street grid correctly
