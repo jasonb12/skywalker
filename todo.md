@@ -115,3 +115,13 @@
 - [x] Update client-side map-html-builder.ts to use S3 CDN GeoJSON URLs
 - [x] Add route color legend overlay showing what each of the 10 skyway colors represents
 - [x] Implement auto-zoom to fit the full skyway network bounds on first load
+- [x] Implement GPS offset engine with exponential decay (lib/gps-offset.ts)
+- [x] Add updateUserCorrection() to position fusion engine
+- [x] Enhance fingerprint capture with 'user-correction' source type (2x weight)
+- [x] Add fix-position state to navigation store (isFixingPosition, gpsOffset)
+- [x] Add crosshair UI mode to map HTML builders (client + server)
+- [x] Add postMessage bridge for fix-position flow (map ↔ app)
+- [x] Add "Fix Position" button to main map screen UI
+- [x] Add confirmation bottom bar with Confirm/Cancel buttons
+- [x] Integrate full fix-position flow in index.tsx
+- [x] Animate blue dot transition on position correction (via exitFixMode postMessage)

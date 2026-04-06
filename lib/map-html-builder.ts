@@ -179,11 +179,114 @@ export function buildMapHtml(options: MapHtmlOptions): string {
     background: ${legendBorder};
     margin: 6px 0;
   }
+
+  /* Fix Position crosshair mode */
+  .crosshair-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 2000;
+  }
+  .crosshair-overlay.active { display: block; }
+  .crosshair-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px; height: 44px;
+  }
+  .crosshair-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px; height: 44px;
+    border: 2.5px solid #FF3B30;
+    border-radius: 50%;
+    opacity: 0.35;
+    animation: crosshair-pulse 2s ease-in-out infinite;
+  }
+  @keyframes crosshair-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.35; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.15; }
+  }
+  .crosshair-dot {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px; height: 10px;
+    background: #FF3B30;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .crosshair-line-h, .crosshair-line-v {
+    position: absolute;
+    background: rgba(255, 59, 48, 0.4);
+  }
+  .crosshair-line-h {
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px; height: 1.5px;
+  }
+  .crosshair-line-v {
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1.5px; height: 44px;
+  }
+  .fix-banner {
+    display: none;
+    position: fixed;
+    top: 60px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 59, 48, 0.92);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    z-index: 2001;
+    box-shadow: 0 2px 12px rgba(255, 59, 48, 0.3);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .fix-banner.active { display: block; }
+  .fix-coords {
+    display: none;
+    position: fixed;
+    bottom: 80px; left: 50%;
+    transform: translateX(-50%);
+    background: ${legendBg};
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid ${legendBorder};
+    color: ${legendText};
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    z-index: 2001;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .fix-coords.active { display: block; }
 </style>
 </head>
 <body>
 <div id="map"></div>
 ${navBarHTML}
+
+<!-- Crosshair overlay for Fix Position mode -->
+<div class="crosshair-overlay" id="crosshairOverlay">
+  <div class="crosshair-center">
+    <div class="crosshair-ring"></div>
+    <div class="crosshair-line-h"></div>
+    <div class="crosshair-line-v"></div>
+    <div class="crosshair-dot"></div>
+  </div>
+</div>
+<div class="fix-banner" id="fixBanner">Drag map to your actual location</div>
+<div class="fix-coords" id="fixCoords"></div>
 
 <!-- Legend toggle button -->
 <div class="legend-toggle" id="legendToggle" title="Route Legend">
@@ -583,6 +686,52 @@ ${navBarHTML}
           map.setLayoutProperty('heatmap-heat', 'visibility', newVis);
           map.setLayoutProperty('heatmap-points', 'visibility', newVis);
           window.parent.postMessage(JSON.stringify({ type: 'heatmapState', visible: newVis === 'visible' }), '*');
+        }
+        // Fix Position mode
+        if (msg.type === 'enterFixMode') {
+          document.getElementById('crosshairOverlay').classList.add('active');
+          document.getElementById('fixBanner').classList.add('active');
+          document.getElementById('fixCoords').classList.add('active');
+          // If we have a user location, fly to it first
+          if (msg.lng && msg.lat) {
+            map.flyTo({ center: [msg.lng, msg.lat], zoom: 17, duration: 600 });
+          }
+          // Start tracking map center
+          var sendCenter = function() {
+            var c = map.getCenter();
+            document.getElementById('fixCoords').textContent = c.lat.toFixed(6) + ', ' + c.lng.toFixed(6);
+            window.parent.postMessage(JSON.stringify({
+              type: 'crosshairCoords',
+              lat: c.lat,
+              lng: c.lng
+            }), '*');
+          };
+          map.on('move', sendCenter);
+          sendCenter();
+          // Store cleanup function
+          window._fixModeCleanup = function() {
+            map.off('move', sendCenter);
+          };
+        }
+        if (msg.type === 'exitFixMode') {
+          document.getElementById('crosshairOverlay').classList.remove('active');
+          document.getElementById('fixBanner').classList.remove('active');
+          document.getElementById('fixCoords').classList.remove('active');
+          if (window._fixModeCleanup) {
+            window._fixModeCleanup();
+            window._fixModeCleanup = null;
+          }
+          // Animate blue dot to corrected position if provided
+          if (msg.correctedLng && msg.correctedLat) {
+            map.getSource('location').setData({
+              type: 'FeatureCollection',
+              features: [{
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [msg.correctedLng, msg.correctedLat] },
+                properties: {}
+              }]
+            });
+          }
         }
       } catch(err) {}
     });

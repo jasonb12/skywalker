@@ -13,6 +13,7 @@ import { useNavigation } from '@/lib/navigation-store';
 import { getApiBaseUrl } from '@/constants/oauth';
 import { BleDetailsPanel } from '@/components/ble-details-panel';
 import { CalibrationPanel } from '@/components/calibration-panel';
+import { applyUserCorrection, getOffsetDecayFactor, hasActiveOffset } from '@/lib/gps-offset';
 
 /**
  * Web map using MapLibre GL JS with self-hosted PMTiles data.
@@ -21,7 +22,11 @@ import { CalibrationPanel } from '@/components/calibration-panel';
  *
  * No ScreenContainer here — the map should fill edge-to-edge like a native map.
  */
-function WebMapView() {
+function WebMapView({
+  onCrosshairCoords,
+}: {
+  onCrosshairCoords?: (lat: number, lng: number) => void;
+}) {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const { state, dispatch } = useNavigation();
@@ -43,14 +48,32 @@ function WebMapView() {
 
   // Update location when it changes (without full reload)
   useEffect(() => {
-    if (state.userPosition) {
+    if (state.userPosition && !state.isFixingPosition) {
       sendMessage({
         type: 'updateLocation',
         lng: state.userPosition.longitude,
         lat: state.userPosition.latitude,
       });
     }
-  }, [state.userPosition, sendMessage]);
+  }, [state.userPosition, state.isFixingPosition, sendMessage]);
+
+  // Enter/exit fix position mode on the map
+  useEffect(() => {
+    if (state.isFixingPosition) {
+      sendMessage({
+        type: 'enterFixMode',
+        lng: state.userPosition?.longitude,
+        lat: state.userPosition?.latitude,
+      });
+    } else {
+      // Only send exitFixMode if we previously entered fix mode
+      sendMessage({
+        type: 'exitFixMode',
+        correctedLng: state.fixPositionCrosshairCoords?.lng,
+        correctedLat: state.fixPositionCrosshairCoords?.lat,
+      });
+    }
+  }, [state.isFixingPosition]);
 
   // Send heatmap data to iframe when it changes
   useEffect(() => {
@@ -70,12 +93,15 @@ function WebMapView() {
     }
   }, [state.heatmapData, sendMessage]);
 
-  // Listen for heatmap state changes from iframe
+  // Listen for messages from iframe (crosshair coords, heatmap state)
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handler = (e: MessageEvent) => {
       try {
         const msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (msg.type === 'crosshairCoords' && onCrosshairCoords) {
+          onCrosshairCoords(msg.lat, msg.lng);
+        }
         if (msg.type === 'heatmapState') {
           // Keep local state in sync with map
         }
@@ -83,7 +109,7 @@ function WebMapView() {
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, []);
+  }, [onCrosshairCoords]);
 
   return (
     <View style={styles.fullScreen}>
@@ -158,6 +184,105 @@ function CalibrationButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function FixPositionButton({ onPress, offsetActive }: { onPress: () => void; offsetActive: boolean }) {
+  const colors = useColors();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={[
+        styles.fixPositionButton,
+        {
+          backgroundColor: offsetActive ? '#FF3B30' : colors.background,
+          borderColor: offsetActive ? '#FF3B30' : colors.border,
+          shadowColor: '#000',
+        },
+      ]}
+    >
+      <View style={styles.fixPositionIconContainer}>
+        <View style={[styles.fixPositionCrosshair, { borderColor: offsetActive ? '#fff' : '#FF3B30' }]} />
+        <View style={[styles.fixPositionDot, { backgroundColor: offsetActive ? '#fff' : '#FF3B30' }]} />
+      </View>
+      <Text style={[styles.fixPositionText, { color: offsetActive ? '#FFFFFF' : colors.foreground }]}>
+        {offsetActive ? 'Corrected' : 'Fix Position'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function FixPositionConfirmBar({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const colors = useColors();
+
+  return (
+    <View style={[styles.fixConfirmBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+      <View style={styles.fixConfirmContent}>
+        <View style={styles.fixConfirmTextGroup}>
+          <Text style={[styles.fixConfirmTitle, { color: colors.foreground }]}>
+            Fix Your Position
+          </Text>
+          <Text style={[styles.fixConfirmSubtitle, { color: colors.muted }]}>
+            Drag the map so the crosshair is on your actual location
+          </Text>
+        </View>
+        <View style={styles.fixConfirmButtons}>
+          <TouchableOpacity
+            onPress={onCancel}
+            activeOpacity={0.7}
+            style={[styles.fixCancelBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.fixCancelText, { color: colors.muted }]}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onConfirm}
+            activeOpacity={0.7}
+            style={styles.fixConfirmBtn}
+          >
+            <Text style={styles.fixConfirmBtnText}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function GpsOffsetIndicator() {
+  const colors = useColors();
+  const [decayPercent, setDecayPercent] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const factor = getOffsetDecayFactor();
+      setDecayPercent(Math.round(factor * 100));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (decayPercent <= 0) return null;
+
+  return (
+    <View style={[styles.offsetIndicator, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      <View style={styles.offsetBarTrack}>
+        <View
+          style={[
+            styles.offsetBarFill,
+            { width: `${decayPercent}%`, backgroundColor: '#FF3B30' },
+          ]}
+        />
+      </View>
+      <Text style={[styles.offsetText, { color: colors.muted }]}>
+        GPS correction {decayPercent}%
+      </Text>
+    </View>
+  );
+}
+
 function BleStatusPill({ onPress }: { onPress: () => void }) {
   const colors = useColors();
   const { state } = useNavigation();
@@ -198,6 +323,79 @@ export default function MapScreen() {
   const [bleDetailsVisible, setBleDetailsVisible] = useState(false);
   const [calibrationVisible, setCalibrationVisible] = useState(false);
   const [heatmapActive, setHeatmapActive] = useState(false);
+  const [crosshairCoords, setCrosshairCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Track GPS offset status for the button indicator
+  const [offsetActive, setOffsetActive] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOffsetActive(hasActiveOffset());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStartFixPosition = useCallback(() => {
+    dispatch({ type: 'START_FIX_POSITION' });
+  }, [dispatch]);
+
+  const handleCancelFixPosition = useCallback(() => {
+    dispatch({ type: 'CANCEL_FIX_POSITION' });
+    setCrosshairCoords(null);
+  }, [dispatch]);
+
+  const handleConfirmFixPosition = useCallback(() => {
+    if (!crosshairCoords) {
+      dispatch({ type: 'CANCEL_FIX_POSITION' });
+      return;
+    }
+
+    // Apply the GPS offset correction
+    const gpsLat = state.userPosition?.latitude ?? crosshairCoords.lat;
+    const gpsLng = state.userPosition?.longitude ?? crosshairCoords.lng;
+    const gpsAccuracy = state.userPosition?.accuracy ?? 50;
+
+    const result = applyUserCorrection(
+      gpsLat,
+      gpsLng,
+      gpsAccuracy,
+      crosshairCoords.lat,
+      crosshairCoords.lng
+    );
+
+    if (result.success) {
+      console.log(
+        `[FixPosition] Correction applied. BLE fingerprint: ${result.fingerprintCaptured ? 'yes' : 'no'} (${result.bleDeviceCount} devices)`
+      );
+
+      // Update the crosshair coords in state before confirming
+      dispatch({ type: 'SET_CROSSHAIR_COORDS', lat: crosshairCoords.lat, lng: crosshairCoords.lng });
+      dispatch({ type: 'CONFIRM_FIX_POSITION' });
+
+      // Update the displayed position to the corrected one
+      if (state.userPosition) {
+        dispatch({
+          type: 'SET_POSITION',
+          position: {
+            ...state.userPosition,
+            latitude: crosshairCoords.lat,
+            longitude: crosshairCoords.lng,
+            accuracy: 3,
+            source: 'snapped',
+          },
+        });
+      }
+    } else {
+      console.warn('[FixPosition] Correction rejected (too far from GPS)');
+      dispatch({ type: 'CANCEL_FIX_POSITION' });
+    }
+
+    setCrosshairCoords(null);
+  }, [crosshairCoords, state.userPosition, dispatch]);
+
+  const handleCrosshairCoords = useCallback((lat: number, lng: number) => {
+    setCrosshairCoords({ lat, lng });
+    dispatch({ type: 'SET_CROSSHAIR_COORDS', lat, lng });
+  }, [dispatch]);
 
   if (!state.dataLoaded) {
     return (
@@ -211,7 +409,7 @@ export default function MapScreen() {
   }
 
   const mapContent = Platform.OS === 'web'
-    ? <WebMapView />
+    ? <WebMapView onCrosshairCoords={handleCrosshairCoords} />
     : (() => {
         const NativeMapComponent = require('@/components/native-map').default;
         return <NativeMapComponent />;
@@ -221,27 +419,49 @@ export default function MapScreen() {
     <View style={styles.fullScreen}>
       {mapContent}
 
-      {/* BLE Status Pill - floating button */}
-      <BleStatusPill onPress={() => setBleDetailsVisible(true)} />
+      {/* Only show floating buttons when NOT in fix-position mode */}
+      {!state.isFixingPosition && (
+        <>
+          {/* BLE Status Pill - floating button */}
+          <BleStatusPill onPress={() => setBleDetailsVisible(true)} />
 
-      {/* Calibration button - below BLE pill */}
-      <CalibrationButton onPress={() => setCalibrationVisible(true)} />
+          {/* Calibration button - below BLE pill */}
+          <CalibrationButton onPress={() => setCalibrationVisible(true)} />
 
-      {/* Heatmap toggle button */}
-      <HeatmapButton
-        active={heatmapActive}
-        onPress={() => {
-          setHeatmapActive(!heatmapActive);
-          dispatch({ type: 'TOGGLE_HEATMAP' });
-          // Send toggle message to iframe on web
-          if (Platform.OS === 'web') {
-            const iframes = document.querySelectorAll('iframe');
-            iframes.forEach((iframe) => {
-              iframe.contentWindow?.postMessage(JSON.stringify({ type: 'toggleHeatmap' }), '*');
-            });
-          }
-        }}
-      />
+          {/* Fix Position button */}
+          <FixPositionButton
+            onPress={handleStartFixPosition}
+            offsetActive={offsetActive}
+          />
+
+          {/* Heatmap toggle button */}
+          <HeatmapButton
+            active={heatmapActive}
+            onPress={() => {
+              setHeatmapActive(!heatmapActive);
+              dispatch({ type: 'TOGGLE_HEATMAP' });
+              // Send toggle message to iframe on web
+              if (Platform.OS === 'web') {
+                const iframes = document.querySelectorAll('iframe');
+                iframes.forEach((iframe) => {
+                  iframe.contentWindow?.postMessage(JSON.stringify({ type: 'toggleHeatmap' }), '*');
+                });
+              }
+            }}
+          />
+
+          {/* GPS Offset decay indicator */}
+          <GpsOffsetIndicator />
+        </>
+      )}
+
+      {/* Fix Position confirm/cancel bar */}
+      {state.isFixingPosition && (
+        <FixPositionConfirmBar
+          onConfirm={handleConfirmFixPosition}
+          onCancel={handleCancelFixPosition}
+        />
+      )}
 
       {/* BLE Details Panel */}
       <BleDetailsPanel
@@ -319,9 +539,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  heatmapButton: {
+  fixPositionButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 140 : 120,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  fixPositionIconContainer: {
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fixPositionCrosshair: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+  },
+  fixPositionDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  fixPositionText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  heatmapButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 180 : 160,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -343,5 +601,91 @@ const styles = StyleSheet.create({
   heatmapText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Fix Position confirm bar
+  fixConfirmBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fixConfirmContent: {
+    gap: 12,
+  },
+  fixConfirmTextGroup: {
+    gap: 4,
+  },
+  fixConfirmTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  fixConfirmSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  fixConfirmButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fixCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  fixCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  fixConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+  },
+  fixConfirmBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // GPS Offset indicator
+  offsetIndicator: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 100 : 80,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  offsetBarTrack: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    overflow: 'hidden',
+  },
+  offsetBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  offsetText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

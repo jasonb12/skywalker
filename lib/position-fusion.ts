@@ -1,13 +1,16 @@
 /**
  * Position Fusion Engine
  *
- * Combines GPS, BLE trilateration, and dead-reckoning into a single
- * fused position estimate using a weighted Kalman-inspired approach.
+ * Combines GPS, BLE trilateration, BLE fingerprinting, and dead-reckoning
+ * into a single fused position estimate using a weighted approach.
  *
  * Priority:
- * 1. BLE trilateration (best indoors, 2-5m accuracy)
- * 2. GPS (best outdoors, 5-15m accuracy)
- * 3. Dead reckoning (fallback when both are unavailable)
+ * 1. User correction (highest confidence — user explicitly indicated position)
+ * 2. BLE fingerprint matching (good indoors, 5-15m accuracy)
+ * 3. BLE trilateration (best indoors with beacons, 2-5m accuracy)
+ * 4. GPS with offset correction (adjusted for known indoor error)
+ * 5. Raw GPS (best outdoors, 5-15m accuracy)
+ * 6. Dead reckoning (fallback when all others unavailable)
  *
  * The fused position uses confidence-weighted averaging where the
  * source with lower accuracy radius gets more weight.
@@ -15,6 +18,7 @@
 
 import type { UserPosition, DetectedBeacon } from './types';
 import { trilateratePosition } from './trilateration';
+import { applyOffset, hasActiveOffset, getOffsetDecayFactor } from './gps-offset';
 
 interface FusionConfig {
   /** Maximum GPS accuracy to consider reliable (meters) */
@@ -51,6 +55,8 @@ export class PositionFusionEngine {
   private lastGps: PositionSource | null = null;
   private lastBle: PositionSource | null = null;
   private lastDeadReckoning: PositionSource | null = null;
+  private lastUserCorrection: PositionSource | null = null;
+  private lastFingerprintEstimate: PositionSource | null = null;
   private lastFused: UserPosition | null = null;
   private lastFusedTimestamp: number = 0;
 
@@ -60,11 +66,32 @@ export class PositionFusionEngine {
 
   /**
    * Update with a new GPS position.
+   * If a GPS offset is active (from user correction), the offset is applied
+   * with exponential decay before fusion.
    */
   updateGps(position: UserPosition): void {
-    const confidence = this.gpsConfidence(position.accuracy);
+    let adjustedPosition = position;
+
+    // Apply GPS offset if active
+    if (hasActiveOffset()) {
+      const { lat, lng, decayFactor } = applyOffset(
+        position.latitude,
+        position.longitude
+      );
+      adjustedPosition = {
+        ...position,
+        latitude: lat,
+        longitude: lng,
+        // Improve reported accuracy proportional to decay factor
+        // When offset is fresh (decay~1), we trust the corrected position more
+        accuracy: position.accuracy * (1 - decayFactor * 0.5),
+        source: 'gps',
+      };
+    }
+
+    const confidence = this.gpsConfidence(adjustedPosition.accuracy);
     this.lastGps = {
-      position,
+      position: adjustedPosition,
       timestamp: Date.now(),
       confidence,
     };
@@ -95,6 +122,63 @@ export class PositionFusionEngine {
   }
 
   /**
+   * Update with a BLE fingerprint-based position estimate.
+   * This comes from the WKNN matching engine in ble-fingerprint-store.
+   */
+  updateFingerprintEstimate(
+    latitude: number,
+    longitude: number,
+    accuracy: number,
+    matchCount: number
+  ): void {
+    // Fingerprint estimates are good when we have many matches
+    let confidence = 0.4;
+    if (matchCount >= 5) confidence = 0.85;
+    else if (matchCount >= 3) confidence = 0.7;
+    else if (matchCount >= 2) confidence = 0.55;
+
+    // Boost confidence if GPS offset is active (we're likely indoors)
+    if (hasActiveOffset()) {
+      confidence = Math.min(confidence * 1.3, 0.95);
+    }
+
+    this.lastFingerprintEstimate = {
+      position: {
+        latitude,
+        longitude,
+        accuracy,
+        heading: null,
+        source: 'ble',
+      },
+      timestamp: Date.now(),
+      confidence,
+    };
+  }
+
+  /**
+   * Update with a user-corrected position.
+   * This is the highest-confidence source — the user explicitly said "I am here."
+   * The position is valid for 30 seconds with decaying confidence.
+   */
+  updateUserCorrection(latitude: number, longitude: number): void {
+    this.lastUserCorrection = {
+      position: {
+        latitude,
+        longitude,
+        accuracy: 3, // User-indicated, assume ~3m accuracy
+        heading: null,
+        source: 'snapped',
+      },
+      timestamp: Date.now(),
+      confidence: 0.98, // Highest confidence
+    };
+
+    console.log(
+      `[Fusion] User correction applied at (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
+    );
+  }
+
+  /**
    * Update with a dead-reckoning position estimate.
    */
   updateDeadReckoning(position: UserPosition): void {
@@ -114,6 +198,22 @@ export class PositionFusionEngine {
   getFusedPosition(): UserPosition | null {
     const now = Date.now();
     const sources: PositionSource[] = [];
+
+    // Check user correction freshness (valid for 30 seconds with decay)
+    if (this.lastUserCorrection && now - this.lastUserCorrection.timestamp < 30000) {
+      const age = now - this.lastUserCorrection.timestamp;
+      // Decay from 0.98 to ~0.3 over 30 seconds
+      const decayFactor = Math.exp(-age / 15000);
+      this.lastUserCorrection.confidence = 0.98 * decayFactor;
+      if (this.lastUserCorrection.confidence > 0.1) {
+        sources.push(this.lastUserCorrection);
+      }
+    }
+
+    // Check fingerprint estimate freshness (valid for 8 seconds)
+    if (this.lastFingerprintEstimate && now - this.lastFingerprintEstimate.timestamp < 8000) {
+      sources.push(this.lastFingerprintEstimate);
+    }
 
     // Check GPS freshness (valid for 10 seconds)
     if (this.lastGps && now - this.lastGps.timestamp < 10000) {
@@ -177,9 +277,13 @@ export class PositionFusionEngine {
     }
 
     // Determine dominant source for labeling
+    const hasUserCorrection = sources.some((s) => s.position.source === 'snapped');
     const hasBle = sources.some((s) => s.position.source === 'ble');
     const hasGps = sources.some((s) => s.position.source === 'gps');
-    if (hasBle && hasGps) {
+
+    if (hasUserCorrection) {
+      bestSource = 'snapped';
+    } else if (hasBle && hasGps) {
       bestSource = 'fused';
     } else if (hasBle) {
       bestSource = 'ble';
@@ -215,6 +319,10 @@ export class PositionFusionEngine {
     deadReckoningActive: boolean;
     bleBeaconCount: number;
     fusedSource: string;
+    userCorrectionActive: boolean;
+    gpsOffsetActive: boolean;
+    gpsOffsetDecay: number;
+    fingerprintEstimateActive: boolean;
   } {
     const now = Date.now();
     return {
@@ -225,6 +333,12 @@ export class PositionFusionEngine {
         now - this.lastDeadReckoning.timestamp < this.config.maxDeadReckoningAge,
       bleBeaconCount: this.lastBle?.position.bleBeaconsInRange ?? 0,
       fusedSource: this.lastFused?.source ?? 'none',
+      userCorrectionActive:
+        !!this.lastUserCorrection && now - this.lastUserCorrection.timestamp < 30000,
+      gpsOffsetActive: hasActiveOffset(),
+      gpsOffsetDecay: getOffsetDecayFactor(),
+      fingerprintEstimateActive:
+        !!this.lastFingerprintEstimate && now - this.lastFingerprintEstimate.timestamp < 8000,
     };
   }
 
@@ -235,6 +349,8 @@ export class PositionFusionEngine {
     this.lastGps = null;
     this.lastBle = null;
     this.lastDeadReckoning = null;
+    this.lastUserCorrection = null;
+    this.lastFingerprintEstimate = null;
     this.lastFused = null;
     this.lastFusedTimestamp = 0;
   }
@@ -244,11 +360,17 @@ export class PositionFusionEngine {
   // ============================================================
 
   private gpsConfidence(accuracy: number): number {
-    if (accuracy <= 5) return 0.9;
-    if (accuracy <= 10) return 0.7;
-    if (accuracy <= 20) return 0.4;
-    if (accuracy <= this.config.maxGpsAccuracy) return 0.2;
-    return 0.1;
+    // If GPS offset is active, reduce GPS confidence (we know GPS is wrong here)
+    const offsetPenalty = hasActiveOffset() ? 0.5 : 1.0;
+
+    let base: number;
+    if (accuracy <= 5) base = 0.9;
+    else if (accuracy <= 10) base = 0.7;
+    else if (accuracy <= 20) base = 0.4;
+    else if (accuracy <= this.config.maxGpsAccuracy) base = 0.2;
+    else base = 0.1;
+
+    return base * offsetPenalty;
   }
 
   private bleConfidence(accuracy: number, beaconCount: number): number {

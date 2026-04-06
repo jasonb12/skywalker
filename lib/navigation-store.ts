@@ -42,6 +42,13 @@ export interface NavigationState {
   heatmapVisible: boolean;
   heatmapData: Array<{ latitude: number; longitude: number; deviceCount: number; source: string }>;
 
+  // Fix Position
+  isFixingPosition: boolean;
+  fixPositionCrosshairCoords: { lat: number; lng: number } | null;
+  lastCorrectionTime: number | null;
+  gpsOffsetActive: boolean;
+  gpsOffsetDecay: number;
+
   // Settings
   hapticEnabled: boolean;
   bleEnabled: boolean;
@@ -62,7 +69,12 @@ export type NavigationAction =
   | { type: 'SET_BLE_STATUS'; deviceCount: number; scanning: boolean; devices: DiscoveredDevice[]; fingerprintCount: number }
   | { type: 'SET_DISTANCE_UNIT'; unit: 'feet' | 'meters' }
   | { type: 'TOGGLE_HEATMAP' }
-  | { type: 'SET_HEATMAP_DATA'; data: Array<{ latitude: number; longitude: number; deviceCount: number; source: string }> };
+  | { type: 'SET_HEATMAP_DATA'; data: Array<{ latitude: number; longitude: number; deviceCount: number; source: string }> }
+  | { type: 'START_FIX_POSITION' }
+  | { type: 'CANCEL_FIX_POSITION' }
+  | { type: 'SET_CROSSHAIR_COORDS'; lat: number; lng: number }
+  | { type: 'CONFIRM_FIX_POSITION' }
+  | { type: 'SET_GPS_OFFSET_STATUS'; active: boolean; decay: number };
 
 export const initialState: NavigationState = {
   buildings: [],
@@ -84,6 +96,11 @@ export const initialState: NavigationState = {
   bleFingerprintCount: 0,
   heatmapVisible: false,
   heatmapData: [],
+  isFixingPosition: false,
+  fixPositionCrosshairCoords: null,
+  lastCorrectionTime: null,
+  gpsOffsetActive: false,
+  gpsOffsetDecay: 0,
   hapticEnabled: true,
   bleEnabled: true,
   distanceUnit: 'feet',
@@ -148,6 +165,36 @@ export function navigationReducer(state: NavigationState, action: NavigationActi
       return { ...state, heatmapVisible: !state.heatmapVisible };
     case 'SET_HEATMAP_DATA':
       return { ...state, heatmapData: action.data };
+    case 'START_FIX_POSITION':
+      return {
+        ...state,
+        isFixingPosition: true,
+        fixPositionCrosshairCoords: null,
+      };
+    case 'CANCEL_FIX_POSITION':
+      return {
+        ...state,
+        isFixingPosition: false,
+        fixPositionCrosshairCoords: null,
+      };
+    case 'SET_CROSSHAIR_COORDS':
+      return {
+        ...state,
+        fixPositionCrosshairCoords: { lat: action.lat, lng: action.lng },
+      };
+    case 'CONFIRM_FIX_POSITION':
+      return {
+        ...state,
+        isFixingPosition: false,
+        fixPositionCrosshairCoords: null,
+        lastCorrectionTime: Date.now(),
+      };
+    case 'SET_GPS_OFFSET_STATUS':
+      return {
+        ...state,
+        gpsOffsetActive: action.active,
+        gpsOffsetDecay: action.decay,
+      };
     default:
       return state;
   }
