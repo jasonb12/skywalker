@@ -128,3 +128,6 @@
 - [x] Snap-to-nearest-skyway: when user confirms fix position, snap crosshair to nearest skyway path segment
 - [x] Correction history: store past GPS corrections and display them in the History tab
 - [x] Haptic feedback: add haptic pulse when position correction is confirmed (success + error)
+- [x] Write unit tests for correction-history.ts (save/load/clear with mocked AsyncStorage)
+- [x] Write unit tests for position-fusion.ts (updateUserCorrection, fused position output)
+- [x] Write unit tests for ble-fingerprint-store.ts (WKNN matching, capture, store/load)

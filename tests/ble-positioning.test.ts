@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+// Define __DEV__ global for Expo modules in vitest environment
+(globalThis as any).__DEV__ = true;
+
 import { trilateratePosition, lngToMeters, latToMeters, metersToLat, metersToLng } from '../lib/trilateration';
 import { PositionFusionEngine } from '../lib/position-fusion';
 import type { DetectedBeacon, UserPosition, Beacon } from '../lib/types';
