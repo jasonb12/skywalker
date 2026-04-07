@@ -60,10 +60,8 @@ export function getMapHTML(
   const legendSubtext = isDark ? "#9BA1A6" : "#666";
   const legendBorder = isDark ? "#334155" : "#e0e0e0";
 
-  // Build GeoJSON base URL — use same origin for dev
-  const geojsonBase = tileUrlTemplate
-    ? tileUrlTemplate.replace(/\/skyway-tiles\/.*$/, "/api/skyway/geojson")
-    : "/api/skyway/geojson";
+  // GeoJSON base URL — always use S3 CDN for independence from local server
+  const geojsonBase = 'https://d2xsxph8kpxj0f.cloudfront.net/310519663073371114/ni6f2tiWMMwdiAqNoUpTSw/map-tiles';
 
   return `<!DOCTYPE html>
 <html>

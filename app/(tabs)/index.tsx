@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNavigation } from '@/lib/navigation-store';
-import { getApiBaseUrl } from '@/constants/oauth';
+import { buildMapHtml } from '@/lib/map-html-builder';
 import { BleDetailsPanel } from '@/components/ble-details-panel';
 import { CalibrationPanel } from '@/components/calibration-panel';
 import { applyUserCorrection, getOffsetDecayFactor, hasActiveOffset } from '@/lib/gps-offset';
@@ -36,7 +36,11 @@ function WebMapView({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
-  const mapUrl = `${getApiBaseUrl()}/api/skyway/map?theme=${colorScheme === 'dark' ? 'dark' : 'light'}`;
+  const mapHtml = useMemo(() => buildMapHtml({
+    isDark: colorScheme === 'dark',
+    userLng: state.userPosition?.longitude,
+    userLat: state.userPosition?.latitude,
+  }), [colorScheme]);
 
   const sendMessage = useCallback((msg: any) => {
     if (iframeRef.current) {
@@ -113,7 +117,7 @@ function WebMapView({
       {Platform.OS === 'web' ? (
         <iframe
           ref={iframeRef as any}
-          src={mapUrl}
+          srcDoc={mapHtml}
           onLoad={() => setIframeLoaded(true)}
           style={{
             position: 'absolute' as any,
@@ -127,6 +131,7 @@ function WebMapView({
           }}
           title="Skyway Map"
           allow="geolocation"
+          sandbox="allow-scripts allow-same-origin"
         />
       ) : null}
     </View>

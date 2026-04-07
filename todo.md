@@ -96,7 +96,7 @@
 - [x] Update Supabase skyway-map Edge Function to use GeoJSON sources (v3)
 - [x] Update map-config.ts with GeoJSON URL helpers
 - [ ] Deploy Expo web frontend to Supabase (static site hosting)
-- [ ] Ensure full app works without dev server
+- [x] Ensure full app works without dev server
 - [x] Fix skyway GeoJSON overlay rotation/alignment — set bearing:30 to match Minneapolis street grid orientation (matching skyway.run reference)
 - [x] Diagnose and fix skyway map overlay misalignment — GeoJSON data does not properly align with base map streets
 - [x] Pull in skyway.run data directly and serve it through the app
@@ -131,3 +131,8 @@
 - [x] Write unit tests for correction-history.ts (save/load/clear with mocked AsyncStorage)
 - [x] Write unit tests for position-fusion.ts (updateUserCorrection, fused position output)
 - [x] Write unit tests for ble-fingerprint-store.ts (WKNN matching, capture, store/load)
+- [x] Audit backend dependencies — identify what relies on local Express server vs Supabase
+- [x] Migrate map HTML serving from Express to Supabase Edge Function or client-side generation
+- [x] Ensure GeoJSON data is served from S3 CDN (not local Express)
+- [x] Verify all API endpoints work via Supabase (not local Express)
+- [ ] Trigger EAS development build for iOS

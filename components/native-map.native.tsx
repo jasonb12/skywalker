@@ -9,7 +9,6 @@ import {
 import {
   MapView,
   Camera,
-  VectorSource,
   RasterSource,
   RasterLayer,
   LineLayer,
@@ -32,7 +31,7 @@ import { findPath, buildRoute } from '@/lib/pathfinding';
 import { savePath } from '@/lib/storage';
 import type { SavedPath, NavigationStep } from '@/lib/types';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { getPmtilesUrl, getFontGlyphsUrl } from '@/lib/map-config';
+import { getGeojsonUrl, getFontGlyphsUrl, SKYWAY_BOUNDS } from '@/lib/map-config';
 
 const MPLS_CENTER: [number, number] = [-93.270, 44.976];
 const DEFAULT_ZOOM = 15;
@@ -60,8 +59,18 @@ export default function NativeMap() {
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
   const [showSteps, setShowSteps] = useState(false);
 
-  const pmtilesUrl = useMemo(() => getPmtilesUrl(), []);
   const fontUrl = useMemo(() => getFontGlyphsUrl(), []);
+
+  // S3 CDN GeoJSON URLs for each skyway layer
+  const geojsonUrls = useMemo(() => ({
+    footwaySimple: getGeojsonUrl('footway-simple'),
+    footway: getGeojsonUrl('footway'),
+    building: getGeojsonUrl('building'),
+    buildingNames: getGeojsonUrl('building-names'),
+    buildingSimple: getGeojsonUrl('building-simple'),
+    roadway: getGeojsonUrl('roadway'),
+    poi: getGeojsonUrl('poi'),
+  }), []);
 
   const nodeMap = useMemo(
     () => new Map(state.nodes.map((n) => [n.id, n])),
@@ -73,7 +82,8 @@ export default function NativeMap() {
     [state.buildings]
   );
 
-  // Build the MapLibre style JSON matching skyway.run
+  // Build the MapLibre style JSON — base map only (CARTO raster tiles)
+  // Skyway layers are added as ShapeSource components with url prop pointing to S3 CDN
   const mapStyle = useMemo(() => {
     const baseTile = isDark ? 'dark_all' : 'light_all';
     return {
@@ -89,11 +99,6 @@ export default function NativeMap() {
           tileSize: 256,
           attribution: '© OpenStreetMap © CARTO',
         },
-        'skyway': {
-          type: 'vector' as const,
-          url: `pmtiles://${pmtilesUrl}`,
-          attribution: 'Skyway data © OpenStreetMap contributors (ODbL)',
-        },
       },
       glyphs: fontUrl,
       layers: [
@@ -104,194 +109,9 @@ export default function NativeMap() {
           minzoom: 0,
           maxzoom: 20,
         },
-        // Zoomed out: footway-simple + building-simple
-        {
-          id: 'simple-footway-path',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'footway-simple',
-          minzoom: 0,
-          maxzoom: 16.5,
-          filter: ['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]],
-          layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
-          },
-        },
-        {
-          id: 'simple-footway-tunnel',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'footway-simple',
-          minzoom: 0,
-          maxzoom: 16.5,
-          filter: ['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']],
-          layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
-            'line-dasharray': [0.9, 0.9],
-          },
-        },
-        {
-          id: 'simple-building-dot',
-          type: 'circle' as const,
-          source: 'skyway',
-          'source-layer': 'building-simple',
-          minzoom: 15,
-          maxzoom: 16.5,
-          filter: ['all', ['!has', 'dot']],
-          paint: {
-            'circle-radius': ['interpolate', ['exponential', 2], ['zoom'], 15, 8, 16, 15],
-            'circle-color': ['get', 'color'],
-          },
-        },
-        {
-          id: 'simple-building-name',
-          type: 'symbol' as const,
-          source: 'skyway',
-          'source-layer': 'building-simple',
-          minzoom: 15,
-          maxzoom: 16.5,
-          filter: ['all', ['!has', 'dot']],
-          layout: {
-            'symbol-placement': 'point' as const,
-            'text-field': ['get', 'name'],
-            'text-font': ['Overpass Bold'],
-            'text-size': 8,
-            'text-transform': 'uppercase' as const,
-            'text-allow-overlap': false,
-            'text-anchor': 'center' as const,
-            'text-max-width': 8,
-            'text-padding': 0,
-          },
-          paint: {
-            'text-color': isDark ? 'rgba(220,220,220,1)' : 'rgba(0,0,0,1)',
-          },
-        },
-        // Zoomed in: full detail layers
-        {
-          id: 'roadway-path',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'roadway',
-          paint: { 'line-color': isDark ? '#333' : '#dedcdd', 'line-width': 8 },
-        },
-        {
-          id: 'roadway-name',
-          type: 'symbol' as const,
-          source: 'skyway',
-          'source-layer': 'roadway',
-          layout: {
-            'text-field': ['get', 'name'],
-            'text-font': ['Overpass Italic'],
-            'text-rotation-alignment': 'map' as const,
-            'symbol-placement': 'line' as const,
-            'text-size': { stops: [[14, 6], [18, 18]], base: 2 } as any,
-            'text-transform': 'uppercase' as const,
-            'text-allow-overlap': false,
-            'text-keep-upright': true,
-            'text-ignore-placement': true,
-          },
-          paint: { 'text-color': isDark ? '#888' : '#78787d' },
-        },
-        {
-          id: 'building-fill',
-          type: 'fill' as const,
-          source: 'skyway',
-          'source-layer': 'building',
-          minzoom: 16.5,
-          paint: {
-            'fill-color': isDark ? '#2a2a2a' : '#e8e8e8',
-            'fill-opacity': 0.8,
-          },
-        },
-        {
-          id: 'building-outline',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'building',
-          minzoom: 16.5,
-          paint: { 'line-color': isDark ? '#444' : '#c0c0c0', 'line-width': 1 },
-        },
-        {
-          id: 'footway-tunnel',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'footway',
-          minzoom: 16.5,
-          filter: ['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']],
-          layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': { stops: [[14, 1], [17, 6]], base: 2 } as any,
-            'line-dasharray': [0.4, 0.6],
-          },
-        },
-        {
-          id: 'footway-path',
-          type: 'line' as const,
-          source: 'skyway',
-          'source-layer': 'footway',
-          minzoom: 16.5,
-          filter: ['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]],
-          layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': { stops: [[14, 1], [15, 6], [18, 9]], base: 2 } as any,
-          },
-        },
-        {
-          id: 'building-name',
-          type: 'symbol' as const,
-          source: 'skyway',
-          'source-layer': 'building-names',
-          minzoom: 16.5,
-          filter: ['all', ['has', 'name']],
-          layout: {
-            'symbol-placement': 'point' as const,
-            'text-field': ['get', 'name'],
-            'text-font': ['Overpass Bold'],
-            'text-size': { stops: [[16, 9], [18, 14]], base: 2 } as any,
-            'text-transform': 'uppercase' as const,
-            'text-allow-overlap': false,
-            'text-anchor': 'center' as const,
-            'text-max-width': 8,
-            'text-padding': 2,
-          },
-          paint: {
-            'text-color': isDark ? 'rgba(220,220,220,1)' : 'rgba(0,0,0,1)',
-            'text-halo-color': isDark ? 'rgba(21,23,24,0.9)' : 'rgba(255,255,255,0.9)',
-            'text-halo-width': 2,
-          },
-        },
-        {
-          id: 'poi-spot',
-          type: 'circle' as const,
-          source: 'skyway',
-          'source-layer': 'poi',
-          maxzoom: 17.5,
-          paint: { 'circle-radius': 2, 'circle-color': isDark ? 'rgba(100,100,100,1)' : 'rgba(205,205,205,1)' },
-        },
-        {
-          id: 'label-poi-active',
-          type: 'symbol' as const,
-          source: 'skyway',
-          'source-layer': 'poi',
-          minzoom: 17.5,
-          filter: ['all', ['has', 'name']],
-          layout: {
-            'symbol-placement': 'point' as const,
-            'text-field': ['get', 'name'],
-            'text-font': ['Overpass Regular'],
-            'text-size': 12,
-          },
-          paint: { 'text-color': isDark ? 'rgba(200,200,200,1)' : 'rgba(45,45,45,1)' },
-        },
       ],
     };
-  }, [isDark, pmtilesUrl, fontUrl]);
+  }, [isDark, fontUrl]);
 
   // Route GeoJSON for active navigation
   const routeGeoJSON = useMemo(() => {
@@ -459,6 +279,16 @@ export default function NativeMap() {
   const currentStep = state.activeRoute?.steps[state.currentStepIndex];
   const nextStep = state.activeRoute?.steps[state.currentStepIndex + 1];
 
+  // Style colors based on theme
+  const textColor = isDark ? 'rgba(220,220,220,1)' : 'rgba(0,0,0,1)';
+  const haloColor = isDark ? 'rgba(21,23,24,0.9)' : 'rgba(255,255,255,0.9)';
+  const roadColor = isDark ? '#333' : '#dedcdd';
+  const roadTextColor = isDark ? '#888' : '#78787d';
+  const buildingFillColor = isDark ? '#2a2a2a' : '#e8e8e8';
+  const buildingOutlineColor = isDark ? '#444' : '#c0c0c0';
+  const poiColor = isDark ? 'rgba(100,100,100,1)' : 'rgba(205,205,205,1)';
+  const poiTextColor = isDark ? 'rgba(200,200,200,1)' : 'rgba(45,45,45,1)';
+
   return (
     <View style={styles.container}>
       <MapView
@@ -480,7 +310,189 @@ export default function NativeMap() {
           }}
         />
 
-        {/* Route overlay */}
+        {/* ─── Skyway GeoJSON layers from S3 CDN ─── */}
+
+        {/* Zoomed out: footway-simple */}
+        <ShapeSource id="skyway-footway-simple" url={geojsonUrls.footwaySimple}>
+          <LineLayer
+            id="simple-footway-path"
+            minZoomLevel={0}
+            maxZoomLevel={16.5}
+            filter={['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]]}
+            style={{
+              lineCap: 'round',
+              lineJoin: 'round',
+              lineColor: ['get', 'color'],
+              lineWidth: ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
+            }}
+          />
+          <LineLayer
+            id="simple-footway-tunnel"
+            minZoomLevel={0}
+            maxZoomLevel={16.5}
+            filter={['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']]}
+            style={{
+              lineCap: 'butt' as any,
+              lineJoin: 'round',
+              lineColor: ['get', 'color'],
+              lineWidth: ['interpolate', ['exponential', 2], ['zoom'], 14, 4, 15, 9, 16, 12],
+              lineDasharray: [0.9, 0.9],
+            }}
+          />
+        </ShapeSource>
+
+        {/* Zoomed out: building-simple */}
+        <ShapeSource id="skyway-building-simple" url={geojsonUrls.buildingSimple}>
+          <CircleLayer
+            id="simple-building-dot"
+            minZoomLevel={15}
+            maxZoomLevel={16.5}
+            filter={['all', ['has', 'name']]}
+            style={{
+              circleRadius: ['interpolate', ['exponential', 2], ['zoom'], 15, 6, 16, 10],
+              circleColor: isDark ? '#555' : '#999',
+            }}
+          />
+          <SymbolLayer
+            id="simple-building-name"
+            minZoomLevel={15}
+            maxZoomLevel={16.5}
+            filter={['all', ['has', 'name']]}
+            style={{
+              symbolPlacement: 'point',
+              textField: ['get', 'name'],
+              textFont: ['Overpass Bold'],
+              textSize: 8,
+              textTransform: 'uppercase',
+              textAllowOverlap: false,
+              textAnchor: 'center',
+              textMaxWidth: 8,
+              textPadding: 0,
+              textColor: textColor,
+            }}
+          />
+        </ShapeSource>
+
+        {/* Roadway */}
+        <ShapeSource id="skyway-roadway" url={geojsonUrls.roadway}>
+          <LineLayer
+            id="roadway-path"
+            style={{
+              lineColor: roadColor,
+              lineWidth: 8,
+            }}
+          />
+          <SymbolLayer
+            id="roadway-name"
+            style={{
+              textField: ['get', 'name'],
+              textFont: ['Overpass Italic'],
+              textRotationAlignment: 'map',
+              symbolPlacement: 'line',
+              textSize: ['interpolate', ['exponential', 2], ['zoom'], 14, 6, 18, 18],
+              textTransform: 'uppercase',
+              textAllowOverlap: false,
+              textKeepUpright: true,
+              textColor: roadTextColor,
+            }}
+          />
+        </ShapeSource>
+
+        {/* Building polygons (zoomed in) */}
+        <ShapeSource id="skyway-building" url={geojsonUrls.building}>
+          <FillLayer
+            id="building-fill"
+            minZoomLevel={16.5}
+            style={{
+              fillColor: buildingFillColor,
+              fillOpacity: 0.8,
+            }}
+          />
+          <LineLayer
+            id="building-outline"
+            minZoomLevel={16.5}
+            style={{
+              lineColor: buildingOutlineColor,
+              lineWidth: 1,
+            }}
+          />
+        </ShapeSource>
+
+        {/* Footway detail (zoomed in) */}
+        <ShapeSource id="skyway-footway" url={geojsonUrls.footway}>
+          <LineLayer
+            id="footway-tunnel"
+            minZoomLevel={16.5}
+            filter={['all', ['has', 'color'], ['has', 'layer'], ['!=', ['get', 'layer'], '1']]}
+            style={{
+              lineCap: 'butt' as any,
+              lineJoin: 'round',
+              lineColor: ['get', 'color'],
+              lineWidth: ['interpolate', ['exponential', 2], ['zoom'], 14, 1, 17, 6],
+              lineDasharray: [0.4, 0.6],
+            }}
+          />
+          <LineLayer
+            id="footway-path"
+            minZoomLevel={16.5}
+            filter={['all', ['has', 'color'], ['any', ['==', ['coalesce', ['get', 'layer'], ['get', 'level']], '1'], ['all', ['!', ['has', 'layer']], ['!', ['has', 'level']]]]]}
+            style={{
+              lineCap: 'round',
+              lineJoin: 'round',
+              lineColor: ['get', 'color'],
+              lineWidth: ['interpolate', ['exponential', 2], ['zoom'], 14, 1, 15, 6, 18, 9],
+            }}
+          />
+        </ShapeSource>
+
+        {/* Building names (zoomed in) */}
+        <ShapeSource id="skyway-building-names" url={geojsonUrls.buildingNames}>
+          <SymbolLayer
+            id="building-name"
+            minZoomLevel={16.5}
+            filter={['all', ['has', 'name']]}
+            style={{
+              symbolPlacement: 'point',
+              textField: ['get', 'name'],
+              textFont: ['Overpass Bold'],
+              textSize: ['interpolate', ['exponential', 2], ['zoom'], 16, 9, 18, 14],
+              textTransform: 'uppercase',
+              textAllowOverlap: false,
+              textAnchor: 'center',
+              textMaxWidth: 8,
+              textPadding: 2,
+              textColor: textColor,
+              textHaloColor: haloColor,
+              textHaloWidth: 2,
+            }}
+          />
+        </ShapeSource>
+
+        {/* POI */}
+        <ShapeSource id="skyway-poi" url={geojsonUrls.poi}>
+          <CircleLayer
+            id="poi-spot"
+            maxZoomLevel={17.5}
+            style={{
+              circleRadius: 2,
+              circleColor: poiColor,
+            }}
+          />
+          <SymbolLayer
+            id="label-poi-active"
+            minZoomLevel={17.5}
+            filter={['all', ['has', 'name']]}
+            style={{
+              symbolPlacement: 'point',
+              textField: ['get', 'name'],
+              textFont: ['Overpass Regular'],
+              textSize: 12,
+              textColor: poiTextColor,
+            }}
+          />
+        </ShapeSource>
+
+        {/* ─── Route overlay ─── */}
         <ShapeSource id="route-source" shape={routeGeoJSON as any}>
           <LineLayer
             id="route-outline"
