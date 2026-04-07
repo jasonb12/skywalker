@@ -1,0 +1,16 @@
+EAS Build Status (2026-04-07):
+
+1. Preview build (5299b05e) - IN_QUEUE - preview profile - ~200 min wait
+2. Development build (4b9719ac) - IN_QUEUE - development profile - queue position 1280, ~197 min wait
+3. Previous FINISHED build (1765b932) - development profile - HAS DOWNLOADABLE IPA
+   - IPA URL: https://expo.dev/artifacts/eas/3TzhDrf8Ujrbz8zkAGur86.ipa
+   - This is a development build (needs Metro bundler)
+   - Built from an older commit
+
+Both new builds are stuck in queue due to free-tier concurrency limits.
+The finished build is a development client, not a standalone preview build.
+
+Options:
+- Cancel the queued development build to free up concurrency for the preview build
+- Use the existing finished development build with Metro bundler
+- Submit a new preview build after canceling the queued ones

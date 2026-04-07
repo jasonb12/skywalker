@@ -145,3 +145,4 @@
 - [x] Add EAS preview build profile (already existed in eas.json)
 - [x] Kick off iOS preview build via EAS CLI (build 5299b05e)
 - [x] Fix skyway layer ordering — skyways now render above roads in all 3 map renderers (web, server, native)
+- [x] Diagnose and fix EAS preview build error (expo-dev-client v55→v6.0.20 for SDK 54 compat)
