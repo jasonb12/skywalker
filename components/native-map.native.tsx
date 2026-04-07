@@ -312,7 +312,32 @@ export default function NativeMap() {
 
         {/* ─── Skyway GeoJSON layers from S3 CDN ─── */}
 
-        {/* Zoomed out: footway-simple */}
+        {/* Roadway — rendered first so skyways appear above roads */}
+        <ShapeSource id="skyway-roadway" url={geojsonUrls.roadway}>
+          <LineLayer
+            id="roadway-path"
+            style={{
+              lineColor: roadColor,
+              lineWidth: 8,
+            }}
+          />
+          <SymbolLayer
+            id="roadway-name"
+            style={{
+              textField: ['get', 'name'],
+              textFont: ['Overpass Italic'],
+              textRotationAlignment: 'map',
+              symbolPlacement: 'line',
+              textSize: ['interpolate', ['exponential', 2], ['zoom'], 14, 6, 18, 18],
+              textTransform: 'uppercase',
+              textAllowOverlap: false,
+              textKeepUpright: true,
+              textColor: roadTextColor,
+            }}
+          />
+        </ShapeSource>
+
+        {/* Zoomed out: footway-simple — above roads */}
         <ShapeSource id="skyway-footway-simple" url={geojsonUrls.footwaySimple}>
           <LineLayer
             id="simple-footway-path"
@@ -341,7 +366,7 @@ export default function NativeMap() {
           />
         </ShapeSource>
 
-        {/* Zoomed out: building-simple */}
+        {/* Zoomed out: building-simple — above skyway paths */}
         <ShapeSource id="skyway-building-simple" url={geojsonUrls.buildingSimple}>
           <CircleLayer
             id="simple-building-dot"
@@ -369,31 +394,6 @@ export default function NativeMap() {
               textMaxWidth: 8,
               textPadding: 0,
               textColor: textColor,
-            }}
-          />
-        </ShapeSource>
-
-        {/* Roadway */}
-        <ShapeSource id="skyway-roadway" url={geojsonUrls.roadway}>
-          <LineLayer
-            id="roadway-path"
-            style={{
-              lineColor: roadColor,
-              lineWidth: 8,
-            }}
-          />
-          <SymbolLayer
-            id="roadway-name"
-            style={{
-              textField: ['get', 'name'],
-              textFont: ['Overpass Italic'],
-              textRotationAlignment: 'map',
-              symbolPlacement: 'line',
-              textSize: ['interpolate', ['exponential', 2], ['zoom'], 14, 6, 18, 18],
-              textTransform: 'uppercase',
-              textAllowOverlap: false,
-              textKeepUpright: true,
-              textColor: roadTextColor,
             }}
           />
         </ShapeSource>

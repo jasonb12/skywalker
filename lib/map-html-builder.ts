@@ -368,6 +368,29 @@ ${navBarHTML}
         maxzoom: 20
       },
       {
+        id: "roadway-path",
+        type: "line",
+        source: "skyway-roadway",
+        paint: { "line-color": "${roadColor}", "line-width": 8 }
+      },
+      {
+        id: "roadway-name",
+        type: "symbol",
+        source: "skyway-roadway",
+        layout: {
+          "text-field": ["get", "name"],
+          "text-font": ["Overpass Italic"],
+          "text-rotation-alignment": "map",
+          "symbol-placement": "line",
+          "text-size": { stops: [[14, 6], [18, 18]], base: 2 },
+          "text-transform": "uppercase",
+          "text-allow-overlap": false,
+          "text-keep-upright": true,
+          "text-ignore-placement": true
+        },
+        paint: { "text-color": "${roadTextColor}" }
+      },
+      {
         id: "simple-footway-path",
         type: "line",
         source: "skyway-footway-simple",
@@ -426,29 +449,6 @@ ${navBarHTML}
           "text-variable-anchor-offset": ["literal", ["top", [0, -4], "bottom", [0, 4], "top-right", [-1, 2]]]
         },
         paint: { "text-color": "${textColor}" }
-      },
-      {
-        id: "roadway-path",
-        type: "line",
-        source: "skyway-roadway",
-        paint: { "line-color": "${roadColor}", "line-width": 8 }
-      },
-      {
-        id: "roadway-name",
-        type: "symbol",
-        source: "skyway-roadway",
-        layout: {
-          "text-field": ["get", "name"],
-          "text-font": ["Overpass Italic"],
-          "text-rotation-alignment": "map",
-          "symbol-placement": "line",
-          "text-size": { stops: [[14, 6], [18, 18]], base: 2 },
-          "text-transform": "uppercase",
-          "text-allow-overlap": false,
-          "text-keep-upright": true,
-          "text-ignore-placement": true
-        },
-        paint: { "text-color": "${roadTextColor}" }
       },
       {
         id: "building-fill",

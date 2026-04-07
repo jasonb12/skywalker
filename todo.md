@@ -144,3 +144,4 @@
 - [x] Upload all font PBF ranges to Supabase Storage (768 files: 3 fonts × 256 ranges)
 - [x] Add EAS preview build profile (already existed in eas.json)
 - [x] Kick off iOS preview build via EAS CLI (build 5299b05e)
+- [x] Fix skyway layer ordering — skyways now render above roads in all 3 map renderers (web, server, native)
