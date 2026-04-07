@@ -34,10 +34,11 @@ export function getGeojsonBaseUrl(): string {
 
 /**
  * Font glyphs URL pattern for MapLibre.
- * Uses the MapLibre demo font server which hosts Overpass and other open fonts.
+ * Self-hosted Overpass PBF fonts on Supabase Storage (map-tiles bucket).
+ * Generated from Google Fonts Overpass variable font via fontnik.
  */
 export function getFontGlyphsUrl(): string {
-  return 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf';
+  return 'https://oocciycvadlcculiqpsz.supabase.co/storage/v1/object/public/map-tiles/fonts/{fontstack}/{range}.pbf';
 }
 
 /**

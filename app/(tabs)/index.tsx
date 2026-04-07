@@ -112,12 +112,33 @@ function WebMapView({
     return () => window.removeEventListener('message', handler);
   }, [onCrosshairCoords]);
 
+  // Use blob URL instead of srcdoc to avoid MapLibre web worker issues
+  // (srcdoc iframes break MapLibre's internal worker protocol for GeoJSON tile generation)
+  const blobUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !mapHtml) return;
+    // Revoke previous blob URL
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+    const blob = new Blob([mapHtml], { type: 'text/html' });
+    blobUrlRef.current = URL.createObjectURL(blob);
+    // Force iframe to load new blob URL
+    if (iframeRef.current) {
+      (iframeRef.current as any).src = blobUrlRef.current;
+    }
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [mapHtml]);
+
   return (
     <View style={styles.fullScreen}>
       {Platform.OS === 'web' ? (
         <iframe
           ref={iframeRef as any}
-          srcDoc={mapHtml}
+          src={blobUrlRef.current || undefined}
           onLoad={() => setIframeLoaded(true)}
           style={{
             position: 'absolute' as any,
@@ -131,7 +152,6 @@ function WebMapView({
           }}
           title="Skyway Map"
           allow="geolocation"
-          sandbox="allow-scripts allow-same-origin"
         />
       ) : null}
     </View>

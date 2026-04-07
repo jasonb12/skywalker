@@ -30,12 +30,10 @@ describe('Map Config - S3 CDN GeoJSON', () => {
     expect(base).toContain('map-tiles');
   });
 
-  it('getFontGlyphsUrl returns MapLibre demo font CDN URL', async () => {
+  it('getFontGlyphsUrl returns Supabase-hosted font URL', async () => {
     const { getFontGlyphsUrl } = await import('../lib/map-config');
     const url = getFontGlyphsUrl();
-    expect(url).toBe(
-      'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
-    );
+    expect(url).toContain('supabase.co/storage/v1/object/public/map-tiles/fonts');
     expect(url).toContain('{fontstack}/{range}.pbf');
   });
 

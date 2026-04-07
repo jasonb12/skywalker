@@ -135,8 +135,12 @@
 - [x] Migrate map HTML serving from Express to Supabase Edge Function or client-side generation
 - [x] Ensure GeoJSON data is served from S3 CDN (not local Express)
 - [x] Verify all API endpoints work via Supabase (not local Express)
-- [ ] Trigger EAS development build for iOS
+- [x] Trigger EAS development build for iOS
 - [x] Fix EAS build: remove empty EXPO_PUBLIC_API_BASE_URL from eas.json (app derives URL at runtime)
 - [x] Fix server __dirname ESM issue for cloud deployment (import.meta.url fallback)
 - [x] Fix EAS project not configured error — add projectId to app.config.ts
 - [x] Fix app.config.ts load-env.js ESM/CJS incompatibility for EAS CLI (rewrote to CJS require syntax)
+- [x] Fix skyway not drawing in web preview (blob URL iframe instead of srcdoc to fix MapLibre web worker issue)
+- [x] Upload all font PBF ranges to Supabase Storage (768 files: 3 fonts × 256 ranges)
+- [x] Add EAS preview build profile (already existed in eas.json)
+- [x] Kick off iOS preview build via EAS CLI (build 5299b05e)

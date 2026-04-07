@@ -1,0 +1,21 @@
+Debug: Skyway not drawing in web preview
+
+ROOT CAUSE: MapLibre GeoJSON sources use web workers to convert GeoJSON into vector tiles.
+In the srcdoc iframe, the worker is created and can communicate (simple test worker works),
+but MapLibre's internal worker protocol has 3 pending loads that never complete.
+This means the GeoJSON data (276 features in footway-simple) is set on the source but
+never processed into tiles, so nothing renders.
+
+Key findings:
+- style._loaded = true (style itself is loaded)
+- map.loaded() = false (because GeoJSON sources never become idle)
+- map.on('load') never fires (waits for ALL sources to be idle)
+- GeoJSON fetch never happens (it's inside the 'load' callback)
+- All 768 font PBF files uploaded to Supabase (3 fonts × 256 ranges)
+- Font loading works (200, 73567 bytes)
+- Web workers work in the iframe (simple test passes)
+- MapLibre worker protocol specifically fails (3 _pendingLoads stuck)
+
+FIX: Change map.on('load') to map.on('style.load') so GeoJSON fetch runs
+even though the empty GeoJSON sources haven't been processed by the worker yet.
+The data will be set via setData() which should trigger worker processing.

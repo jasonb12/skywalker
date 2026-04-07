@@ -7,7 +7,7 @@
  */
 
 const FONT_GLYPHS_URL =
-  "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
+  "https://oocciycvadlcculiqpsz.supabase.co/storage/v1/object/public/map-tiles/fonts/{fontstack}/{range}.pbf";
 
 /** Route color definitions from skyway.run data */
 const ROUTE_COLORS = [
