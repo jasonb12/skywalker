@@ -9,9 +9,6 @@
       "distribution": "internal",
       "ios": {
         "simulator": false
-      },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": ""
       }
     },
     "development-simulator": {
@@ -19,9 +16,6 @@
       "distribution": "internal",
       "ios": {
         "simulator": true
-      },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": ""
       }
     },
     "preview": {

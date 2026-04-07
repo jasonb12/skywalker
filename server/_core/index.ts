@@ -4,6 +4,7 @@ import { createServer } from "http";
 import net from "net";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
@@ -30,7 +31,10 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 // Resolve the project root (where public/ lives)
-const projectRoot = path.resolve(__dirname, "../..");
+// Use import.meta.url for ESM compatibility (deployed builds use ESM)
+const __filename_esm = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
+const __dirname_esm = path.dirname(__filename_esm);
+const projectRoot = path.resolve(__dirname_esm, "../..");
 
 async function startServer() {
   const app = express();
