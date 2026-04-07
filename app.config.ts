@@ -87,6 +87,9 @@ const config: ExpoConfig = {
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    eas: {
+      projectId: '21169c58-264e-4619-b237-9765a8cc5404',
+    },
   },
   plugins: [
     "expo-router",

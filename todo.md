@@ -138,3 +138,4 @@
 - [ ] Trigger EAS development build for iOS
 - [x] Fix EAS build: remove empty EXPO_PUBLIC_API_BASE_URL from eas.json (app derives URL at runtime)
 - [x] Fix server __dirname ESM issue for cloud deployment (import.meta.url fallback)
+- [x] Fix EAS project not configured error — add projectId to app.config.ts
