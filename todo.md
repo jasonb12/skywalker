@@ -152,3 +152,6 @@
 - [x] Check all native module compatibility with SDK 54
 - [x] Run expo-doctor to identify dependency issues
 - [x] Verify no unresolved native links causing runtime crash
+- [ ] Fix EAS build error: react-native-reanimated v4 requires New Architecture, conflicts with newArchEnabled:false
+- [ ] Apply BLE patch to fix crash while keeping New Architecture enabled
+- [ ] Rebuild and verify iOS preview build succeeds

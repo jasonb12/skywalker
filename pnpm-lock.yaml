@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  react-native-ble-plx:
+    hash: i2sxqyyq3semlcwaqtnky3pybi
+    path: patches/react-native-ble-plx.patch
+
 importers:
 
   .:
@@ -142,7 +147,7 @@ importers:
         version: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
       react-native-ble-plx:
         specifier: ^3.5.1
-        version: 3.5.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
+        version: 3.5.1(patch_hash=i2sxqyyq3semlcwaqtnky3pybi)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       react-native-gesture-handler:
         specifier: ~2.28.0
         version: 2.28.0(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
@@ -11622,7 +11627,7 @@ snapshots:
 
   react-is@19.2.3: {}
 
-  react-native-ble-plx@3.5.1(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+  react-native-ble-plx@3.5.1(patch_hash=i2sxqyyq3semlcwaqtnky3pybi)(react-native@0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
