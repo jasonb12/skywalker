@@ -46,7 +46,7 @@ const config: ExpoConfig = {
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
-  newArchEnabled: true,
+  newArchEnabled: false,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -95,6 +95,14 @@ const config: ExpoConfig = {
     "expo-router",
     "expo-asset",
     "@maplibre/maplibre-react-native",
+    [
+      "react-native-ble-plx",
+      {
+        "isBackgroundEnabled": true,
+        "modes": ["central"],
+        "neverForLocation": false
+      }
+    ],
     [
       "expo-location",
       {

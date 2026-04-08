@@ -148,3 +148,7 @@
 - [x] Diagnose and fix EAS preview build error (expo-dev-client v55→v6.0.20 for SDK 54 compat)
 - [x] Diagnose and fix crash-on-launch in iOS preview build (removed expo-dev-client from deps, build 450b72aa)
 - [x] Fix crash-on-launch: installed missing expo-asset peer dependency (build f73709d6)
+- [ ] Investigate and fix iOS preview build crash-on-launch (still crashing after expo-asset fix)
+- [ ] Check all native module compatibility with SDK 54
+- [ ] Run expo-doctor to identify dependency issues
+- [ ] Verify no unresolved native links causing runtime crash
