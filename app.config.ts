@@ -85,8 +85,8 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   extra: {
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://oocciycvadlcculiqpsz.supabase.co',
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vY2NpeWN2YWRsY2N1bGlxcHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0OTQ2MjgsImV4cCI6MjA4MTA3MDYyOH0.QCk9sgYbDurZHHCPYwYFROFkHLb-sYCWPtNvGIIjUFw',
     eas: {
       projectId: '21169c58-264e-4619-b237-9765a8cc5404',
     },

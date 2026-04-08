@@ -155,3 +155,5 @@
 - [x] Fix EAS build error: react-native-reanimated v4 requires New Architecture, conflicts with newArchEnabled:false
 - [x] Apply BLE patch to fix crash while keeping New Architecture enabled
 - [x] Rebuild and verify iOS preview build succeeds (build b37106c4)
+- [ ] Fix crash: supabaseUrl is required - guard Supabase client init for missing env vars
+- [ ] Ensure Supabase env vars are available in EAS preview builds
